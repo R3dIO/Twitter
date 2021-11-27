@@ -8,10 +8,39 @@ open Akka.FSharp
 open System.Collections.Generic
 open System.Text.RegularExpressions
 open FSharpPlus
-open Suave
 open System.Data
 open Database
 open Datatype
+open Akka.Configuration
+
+let configuration = 
+    ConfigurationFactory.ParseString(
+        @"akka {
+            actor {
+                provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
+                debug : {
+                    receive : on
+                    autoreceive : on
+                    lifecycle : on
+                    event-stream : on
+                    unhandled : on
+                }
+                serializers {
+                    hyperion = ""Akka.Serialization.HyperionSerializer, Akka.Serialization.Hyperion""
+                }
+                serialization-bindings {
+                    ""System.Object"" = hyperion
+                }                
+            }
+            remote {
+                helios.tcp {
+                    port = 9001
+                    hostname = 192.168.0.94
+                }
+            }
+        }")
+
+let serversystem = System.create "TwitterServer" configuration
 
 let numUsers = fsi.CommandLineArgs.[1] |> int
 
@@ -143,7 +172,7 @@ let FollowUser (followee: string, follower: string) =
         | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
         | None -> followersMap <- followersMap.Add(followee, followers)
 
-let SendTweets (username: string, tweet: string) =
+let SendTweet (username: string, tweet: string) =
     let tempRow = tweetDataTable.NewRow()
     let tweetHash = string (getHashNumFromSha1(username + tweet))
     tempRow.SetField("TweetID", tweetHash)
@@ -162,7 +191,7 @@ let SendTweets (username: string, tweet: string) =
             else    
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
 
-let ReTweets (username: string, tweetID: string) =
+let ReTweet (username: string, tweetID: string) =
     let userTweet = GetTweetDetails(tweetID)
     let followerList = GetFollowers(username)
 
@@ -188,6 +217,7 @@ let Server(mailbox: Actor<_>) =
     
     let mutable searchCount = 0
 
+    let simulatorRef = select ("akka.tcp://Twitter@localhost:2552/user/Simulator") serversystem
     let rec loop()= actor{
         let! msg = mailbox.Receive();
         let response = mailbox.Sender();
@@ -195,18 +225,23 @@ let Server(mailbox: Actor<_>) =
             match msg with 
                 | SignUpUser (userData) -> 
                    RegisterUser userData
+                   simulatorRef <! UserRegistrationDone(userData)  
 
                 | Login (userCreds:LogInUser) ->
                    LoginUser userCreds
+                   simulatorRef <! UserLoginDone(userData)
 
                 | Logout (userCreds:LogOutUser) ->
                    LogOutUser userCreds
+                   simulatorRef <! UserLogoutDone(userData)
 
-                | SendTweets (username: string, tweet: string) ->
-                    SendTweets (username, tweet)
+                | SendTweet (username: string, tweet: string) ->
+                    SendTweet (username, tweet)
+                    simulatorRef <! UserSendTweetDone(userData)
 
-                | ReTweets (username: string, tweetID: string) ->
-                    ReTweets (username, tweetID)
+                | ReTweet (username: string, tweetID: string) ->
+                    ReTweet (username, tweetID)
+                    simulatorRef <! UserReTweetDone(userData)
 
                 | _ -> ()
         with
