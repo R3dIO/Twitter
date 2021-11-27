@@ -1,0 +1,6 @@
+#r "nuget: Akka.FSharp" 
+#r "nuget: Akka.TestKit" 
+#r "nuget: FSharpPlus, 1.2.2"
+#r "nuget: Suave, 2.6.1"
+#r "System.Data.DataSetExtensions"
+#r "System.Data"
