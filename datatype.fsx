@@ -56,8 +56,8 @@ type ServerMessage =
     | Login of LogInUser
     | Logout of LogOutUser
     | SignUpUser of userDetails
-    | SendTweets of string * string
-    | ReTweets of string * string
+    | SendTweet of string * string
+    | ReTweet of string * string
 
 type ClientMessage = 
     | ReceieveTweet of tweetDetailsRecord

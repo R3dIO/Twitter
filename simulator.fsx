@@ -8,7 +8,6 @@
 open Akka.FSharp
 open System
 open System.Collections.Generic
-open Message
 open Akka.Remote
 open Akka.Configuration
 open Akka.Serialization
@@ -65,12 +64,13 @@ let Client userId system (mailbox:Actor<_>) =
     let rec loop () = actor {
         let! message = mailbox.Receive()
         match message with
-        | LogoutUser -> isLoggedIn <- false
-                        //printfn "User %d logged out from Twitter." userid
-                        simRef <! LogoutDone
         | LoginUser -> isLoggedIn <- true
                        //printfn "User %d logged in to Twitter successfully." userid
                        simRef <! LoginDone
+
+        | LogoutUser -> isLoggedIn <- false
+                        //printfn "User %d logged out from Twitter." userid
+                        simRef <! LogoutDone
         | Subscribe(toFollowId) -> //printfn "Recieved subscribe for %d from %d" toFollowId userId
                                    serverRef <! AddFollower(userid, toFollowId)
                                    //printfn "User %d followed User %d" userid toFollowId
@@ -232,7 +232,7 @@ let simulator (mailbox:Actor<_>) =
                                 userMap.[id] <! SendTweet(tweet)
                                 userMentionList.Add(toUser)
                            numTweetsSent <- (int64 (numTweets+2)) * numUsers
-        | SendTweetsDone -> printfn "NumRecvdt %d torev %d" numTweetsRcvd numTweetsSent
+        | SendTweetDone -> printfn "NumRecvdt %d torev %d" numTweetsRcvd numTweetsSent
                             numTweetsRcvd <- numTweetsRcvd + 1L
                             if numTweetsRcvd = numTweetsSent then
                                 diffTime <- stopwatch.ElapsedMilliseconds
