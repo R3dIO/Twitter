@@ -197,6 +197,7 @@ let SendTweets (username: string, tweet: string) =
     tweetDataTable.Rows.Add(tempRow)
 
     let userTweet = { TweetID=tweetHash; Username=username; Tweet=tweet}
+    UpdateHashTagAndMentions(tweet, userTweet.TweetID)
     let followerList = GetFollowers(username)
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
@@ -253,6 +254,12 @@ let Server(mailbox: Actor<_>) =
 
                 | ReTweets (username: string, tweetID: string) ->
                     ReTweets (username, tweetID)
+
+                | SearchHashtag (searchString: string) ->
+                    SearchHashTagAndMentions (searchString, "HashTag")
+                
+                | SearchMention (searchString: string) ->
+                    SearchHashTagAndMentions (searchString, "Mention")
 
                 | _ -> ()
         with

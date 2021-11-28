@@ -58,6 +58,8 @@ type ServerMessage =
     | SignUpUser of userDetails
     | SendTweets of string * string
     | ReTweets of string * string
+    | SearchHashtag of string
+    | SearchMention of string
 
 type ClientMessage = 
     | ReceieveTweet of tweetDetailsRecord
