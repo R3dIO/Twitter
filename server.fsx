@@ -17,7 +17,7 @@ open Datatype
 let mutable UserCount = 0;
 let mutable TweetCount = 0;
 let useDataTable = true;
-let mutable OnlineUsers :Map<string,IActorRef> = Map.empty
+let mutable OnlineUsers :Map<string,ActorSelection> = Map.empty
 let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
 let mutable hashtagsMap: Map<string, list<string>> = Map.empty
@@ -45,7 +45,7 @@ let serverConfig =
             remote {
                 helios.tcp {
                     port = 9090
-                    hostname = 10.20.242.35
+                    hostname = localhost
                 }
             }
         }")
@@ -179,13 +179,15 @@ let Register (userInfo: UserDetails) =
     UserCount <- UserCount + 1
 
 let LogIn (userCreds: UserLogIn) =
+    let mutable response = ""
     let mutable loginExpression = "Username = '" + userCreds.Username + "'"
     let mutable userDetailRows = (userDataTable.Select(loginExpression))
     if (userDetailRows.Length > 0) then
         let userDetailRow = userDetailRows.[0]
         let UserName  = userDetailRow.Field(userDataTable.Columns.Item(0))
         let UserPasswd = userDetailRow.Field(userDataTable.Columns.Item(1))
-        let UserObj = userDetailRow.Field(userDataTable.Columns.Item(5))
+        let UserObjPath = userDetailRow.Field(userDataTable.Columns.Item(5))
+        let UserObj = serverSystem.ActorSelection(UserObjPath.ToString())
         if (UserPasswd = userCreds.Password) then
             OnlineUsers <- OnlineUsers.Add(UserName, UserObj)
             if (pendingTweets.ContainsKey(userCreds.Username)) then
@@ -193,20 +195,33 @@ let LogIn (userCreds: UserLogIn) =
                 let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
                 UserObj <! ReceieveTweetUser(localTweetList,Pending)
                 pendingTweets <- pendingTweets.Add(userCreds.Username, [])
+        else
+            response <- response + ":" + "Incorrect password"
+    else 
+        response <- response + ":" + "User not found"
+    response
 
 let LogOut (userCreds: UserLogOut) =
+    let mutable response = ""
     if (OnlineUsers.ContainsKey(userCreds.Username)) then
         OnlineUsers <- OnlineUsers.Remove(userCreds.Username)
+    else
+        response <- response + ":" + "User Isn't logged in"
+    response
 
 let Follow (followee: string, follower: string) =
+    let mutable response = ""
     let userdata = GetUserDetails(followee)
-    if (userdata.Username <> "") then
+    let userdataFollower = GetUserDetails(follower)
+    if (userdata.Username <> "" && userdataFollower.Username <> "") then
         let followerLocalList = followersMap.TryFind(followee)
         match followerLocalList with
             | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
             | None -> followersMap <- followersMap.Add(userdata.Username, (followersMap.[userdata.Username]).Add(follower))
     else
-        printfn "User does not exist"
+        response <- response + ":" + "Followe or Follower does not exist"
+    response
+
 
 let SendTweets (username: string, tweet: string) =
     let tempRow = tweetDataTable.NewRow()
@@ -270,7 +285,7 @@ let ServerActor(mailbox: Actor<_>) =
                    LogOut userCreds
 
                 | FollowReqServer (followeID: string, followerID: string) ->
-                    Follow (followeID, followerID)
+                   Follow (followeID, followerID)
 
                 | SendTweets (username: string, tweet: string) ->
                     SendTweets (username, tweet)

@@ -82,3 +82,4 @@ type ClientMessage =
     | ReceieveTweetUser of list<tweetDetailsRecord> * TweetTypeMessage
     | SearchTweetsWithMention of string
     | SearchTweetsWithHashTag of string
+    | UserRequestResponse of string

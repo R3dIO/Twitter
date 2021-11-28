@@ -73,7 +73,7 @@ let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: Tw
 
 let ClientActor userId system (mailbox:Actor<_>) =
     let username = userId
-    let mutable password = getRandomString(10)
+    let password = getRandomString(10)
     let mutable isLoggedIn = false
     let mutable myTweets: list<tweetDetailsRecord> = list.Empty
     let mutable newTweetCount = 0
@@ -85,13 +85,14 @@ let ClientActor userId system (mailbox:Actor<_>) =
             filterFrontList.Add(myTweets.[i])
         filterFrontList
 
-    let ServerActObjRef = select ("akka.tcp://ServerActor@192.168.0.94:9001/user/TwitterServer") system
+    let ServerActObjRef = select ("akka.tcp://ServerActor@localhost:9090/user/TwitterServer") system
 
     let rec loop () = actor {
         let! message = mailbox.Receive()
         match message with
             | SignUpUser ->
-                new UserDetails(username, username + "@ufl.com", password, "akka.tcp://ClientActor@localhost:8000/user/Client" + (string username))
+                let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://ClientActor@localhost:8000/user/Client" + (string username))
+                ServerActObjRef <! SignUpReqServer userDetails
 
             | LogOutUser -> 
                 isLoggedIn <- false
@@ -134,6 +135,9 @@ let ClientActor userId system (mailbox:Actor<_>) =
                         newTweetCount <- newTweetCount + tweetList.Length
                     | Search ->
                         viewTweets(username, tweetList, Search)
+
+            | UserRequestResponse (msg) ->
+                printfn "Got %s for user %s" msg username
 
             | SearchTweetsWithMention(searchKey) -> 
                 ServerActObjRef <! SearchHashtag(username, searchKey)
