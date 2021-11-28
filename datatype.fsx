@@ -68,17 +68,18 @@ type ServerMessage =
     | FollowReqServer of string * string
     | SendTweets of string * string
     | ReTweets of string * string
-    | SearchHashtag of string
-    | SearchMention of string
+    | SearchHashtag of string * string
+    | SearchMention of string * string
 
 type ClientMessage = 
     | LogInUser
     | LogOutUser
     | SignUpUser
     | SendTweetUser of string
-    | ReTweetsUser of string * string
+    | ReTweetUser
     | FollowUser of string
     | SearchHashtagUser of string
     | SearchMentionUser of string
     | ReceieveTweetUser of list<tweetDetailsRecord> * TweetTypeMessage
-
+    | SearchTweetsWithMention of string
+    | SearchTweetsWithHashTag of string

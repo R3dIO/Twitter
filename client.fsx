@@ -67,6 +67,13 @@ let ClientActor userId system (mailbox:Actor<_>) =
     let mutable isLoggedIn = false
     let mutable myTweets: list<tweetDetailsRecord> = list.Empty
     let mutable newTweetCount = 0
+    
+    let takeNTweets maxCount =
+        let filterFrontList = new List<tweetDetailsRecord>()
+        let number = if maxCount < myTweets.Length then maxCount else myTweets.Length
+        for i in [0..number-1] do
+            filterFrontList.Add(myTweets.[i])
+        filterFrontList
 
     let ServerActObjRef = select ("akka.tcp://ServerActor@192.168.0.94:9001/user/TwitterServer") system
     let rec loop () = actor {
@@ -92,11 +99,15 @@ let ClientActor userId system (mailbox:Actor<_>) =
                     ServerActObjRef <! FollowReqServer (username, toFollowId)
 
             | SendTweetUser(tweet) -> 
-                printfn "Send tweet recived"
+                printfn "Send tweet recieved"
                 if isLoggedIn then
                     printfn "User %s tweeted %s" username tweet
                     ServerActObjRef <! SendTweets(username, tweet+"- by User "+ username)
 
+            | ReTweetUser -> 
+                let tweetObj = myTweets.[rand.Next(myTweets.Length)]
+                ServerActObjRef <! ReTweets(username, tweetObj.TweetID)
+            
             | ReceieveTweetUser(tweetList: list<tweetDetailsRecord>, tweetType: TweetTypeMessage) -> 
                 printfn "Recieved %i new tweets for user %s" tweetList.Length username
                 match tweetType with 
@@ -109,20 +120,13 @@ let ClientActor userId system (mailbox:Actor<_>) =
                         newTweetCount <- newTweetCount + tweetList.Length
                     | Search ->
                         viewTweets(username, tweetList, Search)
-                    
-            
-            | QueryTweetWithMention(key) -> serverRef <! GetAllMentions(key, userId)
-            | QueryTweetWithHashTag(key) -> serverRef <! GetAllHashTags(key, userId)
-            | PrintQueryResult(listOfTweets) -> for tweet in listOfTweets do
-                                                    printfn "%s" tweet
-            | TweetLive(tweet) -> if isLoggedIn then
-                                    printfn "%s" tweet
-            | ReTweetSim(firstN) -> let tweetList = takeNTweets firstN
-                                    for tweet in tweetList do 
-                                        mailbox.Self <! SendRetweet(tweet)
-            | SendRetweet(tweet) -> serverRef <! Tweet(userid, tweet+"- by User "+(string userid))
-                                    printfn "User %d retweeted %s - by User %d" userid tweet userid
-                                    ServerActObjRef <! SendRetweetDone
+
+            | SearchTweetsWithMention(searchKey) -> 
+                ServerActObjRef <! SearchHashtag(username, searchKey)
+
+            | SearchTweetsWithHashTag(searchKey) -> 
+                ServerActObjRef <! SearchHashtag(username, searchKey)
+
             | _ -> printfn  "Invalid operation"
         return! loop ()
     }
@@ -130,4 +134,4 @@ let ClientActor userId system (mailbox:Actor<_>) =
 
 let clients = Array.zeroCreate (numClients + 1)
 for id in 0..numClients do
-    clients.[id] <- spawn clientSystem ("User"+(string id)) ClientActor
+    clients.[id] <- spawn clientSystem ("User"+(string id)) ClientActor(id)

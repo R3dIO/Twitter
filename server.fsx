@@ -106,7 +106,7 @@ let GetFollowers(username: string) =
     followerList
 
 let SearchHashTagAndMentions (searchString: string, searchType: string) =
-        let mutable tweetList = new List<tweetDetailsRecord>()
+        let mutable tweetList = list.Empty
         if (searchType = "HashTag") then
             if (useDataTable) then
                 let HashTagExpression = "HashTag = '" + searchString + "'"
@@ -114,12 +114,12 @@ let SearchHashTagAndMentions (searchString: string, searchType: string) =
                 if (HashTagDetailRows.Length > 0) then
                     for tweetID in HashTagDetailRows do
                         let tweetObj = GetTweetDetails(tweetID.Field("TweetID"))
-                        tweetList.Add(tweetObj)
+                        tweetList <- tweetObj :: tweetList
             else
                 if (hashtagsMap.ContainsKey(searchString)) then
                     for tweetID in hashtagsMap.[searchString] do
                         let tweetObj = GetTweetDetails(tweetID)
-                        tweetList.Add(tweetObj)
+                        tweetList <- tweetObj :: tweetList
 
         elif (searchType = "Mention") then
             if (useDataTable) then
@@ -128,12 +128,12 @@ let SearchHashTagAndMentions (searchString: string, searchType: string) =
                 if (MentionDetailRows.Length > 0) then
                     for tweetID in MentionDetailRows do
                         let tweetObj = GetTweetDetails(tweetID.Field("TweetID"))
-                        tweetList.Add(tweetObj)
+                        tweetList <- tweetObj :: tweetList
             else
                 if (mentionsMap.ContainsKey(searchString)) then
                     for tweetID in mentionsMap.[searchString] do
                         let tweetObj = GetTweetDetails(tweetID)
-                        tweetList.Add(tweetObj)
+                        tweetList <- tweetObj :: tweetList
         else 
             printfn "Invalid Search Type"
         tweetList
@@ -195,7 +195,7 @@ let LogIn (userCreds: UserLogIn) =
             if (pendingTweets.ContainsKey(userCreds.Username)) then
                 let localTweetIdList = pendingTweets.[userCreds.Username]
                 let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
-                UserObj <! ReceieveTweetUser(localTweetList,"Pending")
+                UserObj <! ReceieveTweetUser(localTweetList,Pending)
                 pendingTweets <- pendingTweets.Add(userCreds.Username, [])
 
 let LogOut (userCreds: UserLogOut) =
@@ -225,7 +225,7 @@ let SendTweets (username: string, tweet: string) =
     let followerList = GetFollowers(username)
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
-            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], "Live")
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live)
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
@@ -248,7 +248,7 @@ let ReTweets (username: string, tweetID: string) =
         userDataTable.Rows.Add(tempRow)
 
         if (OnlineUsers.ContainsKey(users)) then
-            OnlineUsers.[users] <! ReceieveTweetUser([userTweet],"Live")
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet],Live)
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
@@ -282,12 +282,15 @@ let ServerActor(mailbox: Actor<_>) =
                 | ReTweets (username: string, tweetID: string) ->
                     ReTweets (username, tweetID)
 
-                | SearchHashtag (searchString: string) ->
+                | SearchHashtag (username: string, searchString: string) ->
                     let userTweetList = SearchHashTagAndMentions (searchString, "HashTag")
+                    if (OnlineUsers.ContainsKey(username)) then
+                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
 
-
-                | SearchMention (searchString: string) ->
+                | SearchMention (username: string, searchString: string) ->
                     let userTweetList = SearchHashTagAndMentions (searchString, "Mention")
+                    if (OnlineUsers.ContainsKey(username)) then
+                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
 
                 | _ -> printfn  "Invalid operation"
         with
