@@ -39,14 +39,18 @@ ReTweetDataTable.PrimaryKey <- [|ReTweetDataTable.Columns.["ReTweetID"]|]
 database.Tables.Add(ReTweetDataTable)
 
 let HashTagDataTable = new DataTable("HashTag")
+let HashTagId = HashTagDataTable.Columns.Add("HashTagID", typeof<int32>);
+HashTagId.AutoIncrement = true;
 HashTagDataTable.Columns.Add("HashTag", typeof<string>);
-HashTagDataTable.Columns.Add("TweetList", typeof<List<string>>);
-HashTagDataTable.PrimaryKey <- [|HashTagDataTable.Columns.["HashTag"]|]
+HashTagDataTable.Columns.Add("TweetID", typeof<string>);
+HashTagDataTable.PrimaryKey <- [|HashTagDataTable.Columns.["HashTagID"]|]
 database.Tables.Add(HashTagDataTable)
 
 let MentionDataTable = new DataTable("Mention")
+let MentionID = MentionDataTable.Columns.Add("MentionID", typeof<int32>);
+MentionID.AutoIncrement = true;
 MentionDataTable.Columns.Add("Mention", typeof<string>);
-MentionDataTable.Columns.Add("TweetList", typeof<List<string>>);
-ReTweetDataTable.PrimaryKey <- [|MentionDataTable.Columns.["Mention"]|]
-database.Tables.Add(ReTweetDataTable)
+MentionDataTable.Columns.Add("TweetID", typeof<string>);
+ReTweetDataTable.PrimaryKey <- [|MentionDataTable.Columns.["MentionID"]|]
+database.Tables.Add(MentionDataTable)
 
