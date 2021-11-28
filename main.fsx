@@ -23,6 +23,8 @@ let mutable OnlineUsers :Map<string,IActorRef> = Map.empty
 let mutable UserCount = 0;
 let mutable followersMap: Map<string, list<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
+let mutable hashtagsMap: Map<string, list<string>> = Map.empty
+let mutable mentionsMap: Map<string, list<string>> = Map.empty
 //-------------------------------------- Initialization --------------------------------------//
 
 //-------------------------------------- Server --------------------------------------//
@@ -31,32 +33,6 @@ let getHashNumFromSha1(s: string) =
     System.Text.Encoding.ASCII.GetBytes(s) 
     |> System.Security.Cryptography.SHA1.Create().ComputeHash
     |> System.Text.Encoding.ASCII.GetString
-
-let UpdateHashTagAndMentions (tweet: string) =
-        let hashtagsList = new List<string>()
-        let mentionsList = new List<string>()
-        
-        let hashtagsMatchCollection = Regex.Matches(tweet, "#[a-zA-Z0-9_]+")
-        for hashtag in hashtagsMatchCollection do
-            hashtagsList.Add(hashtag.Value)
-            let exp = "hashtag = '"+hashtag.Value+"'"
-            let tweeRows = HashTagDataTable.Select(exp)
-            if tweeRows.Length = 0 then
-                let row = HashTagDataTable.NewRow()
-                row.["hashtag"] <- hashtag
-                htable.Rows.Add row
-            let dataRows = htable.Select(exp)
-            let h = Hashtag(int(string(dataRows.[0].["id"])),string(dataRows.[0].["hashtag"]))
-            tweetHashtags <- h :: tweetHashtags
-            let row = httable.NewRow()
-            row.["hashtagid"] <- h.ID
-            row.["tweetid"] <- tweetrow.["id"]
-
-        let mentionsMatchCollection = Regex.Matches(tweet, "@User[0-9]+")
-        for mentionsMatch in mentionsMatchCollection do
-            mentionsList.Add(mentionsMatch.Value)
-
-
 
 let GetUserDetails(username: string) =
     let userExpression = "Username = '" + username + "'"
@@ -101,7 +77,58 @@ let GetFollowers(username: string) =
             else 
                 followerList <- userdata.Followers
     followerList
-            
+
+let SearchHashTagAndMentions (searchString: string, searchType: string) =
+        let mutable tweetList = new List<tweetDetailsRecord>()
+        if (searchType = "HashTag") then
+            let HashTagExpression = "HashTag = '" + searchString + "'"
+            let HashTagDetailRows = (HashTagDataTable.Select(HashTagExpression))
+            if (HashTagDetailRows.Length > 0) then
+                for tweetID in HashTagDetailRows do
+                    let tweetObj = GetTweetDetails(tweetID.Field("TweetID"))
+                    tweetList.Add(tweetObj)
+        elif (searchType = "Mention") then
+            let MentionExpression = "Mention = '" + searchString + "'"
+            let MentionDetailRows = (HashTagDataTable.Select(MentionExpression))
+            if (MentionDetailRows.Length > 0) then
+                for tweetID in MentionDetailRows do
+                    let tweetObj = GetTweetDetails(tweetID.Field("TweetID"))
+                    tweetList.Add(tweetObj)
+        else 
+            printfn "Invalid Search Type"
+        tweetList
+
+let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
+    let hashtagsMatchCollection = Regex.Matches(tweet, "#[a-zA-Z0-9_]+")
+    for hashtag in hashtagsMatchCollection do
+        
+        if (hashtagsMap.ContainsKey(hashtag.Value)) then
+            hashtagsMap <- hashtagsMap.Add(hashtag.Value, hashtagsMap.[hashtag.Value] @ [tweetID])
+        else
+            hashtagsMap <- hashtagsMap.Add(hashtag.Value, [tweetID])
+
+        let insertTempRow = HashTagDataTable.NewRow()
+        insertTempRow.["HashTag"] <- hashtag
+        insertTempRow.["TweetID"] <- tweetID
+        HashTagDataTable.Rows.Add(insertTempRow)
+
+    let mentionsMatchCollection = Regex.Matches(tweet, "@User[0-9]+")
+    for mention in mentionsMatchCollection do
+        let username = mention.Value.[1..]
+        let userDetails = GetUserDetails(username)
+        if (userDetails.Username <> "") then
+            if (mentionsMap.ContainsKey(mention.Value)) then
+                mentionsMap <- mentionsMap.Add(mention.Value, mentionsMap.[mention.Value] @ [tweetID])
+            else
+                mentionsMap <- mentionsMap.Add(mention.Value, [tweetID])
+
+            let insertTempRow = HashTagDataTable.NewRow()
+            insertTempRow.["Mention"] <- mention
+            insertTempRow.["TweetID"] <- tweetID
+            HashTagDataTable.Rows.Add(insertTempRow)
+        else 
+            printfn "User Does not exist" 
+  
 let RegisterUser (userInfo:userDetails) =
     let tempRow = userDataTable.NewRow()
     tempRow.SetField("Username", userInfo.Username)
