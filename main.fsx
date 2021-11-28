@@ -23,7 +23,7 @@ let mutable UserCount = 0;
 let mutable TweetCount = 0;
 let useDataTable = true;
 let mutable OnlineUsers :Map<string,IActorRef> = Map.empty
-let mutable followersMap: Map<string, list<string>> = Map.empty 
+let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
 let mutable hashtagsMap: Map<string, list<string>> = Map.empty
 let mutable mentionsMap: Map<string, list<string>> = Map.empty
@@ -71,8 +71,8 @@ let GetFollowers(username: string) =
    
     match followerLocalList with
         | Some(followerLocalList) -> 
-            printfn "Found %i followers for user %s" followerLocalList.Length username
-            followerList <- followerLocalList
+            printfn "Found %i followers for user %s" followerLocalList.Count username
+            followerList <- Set.toList followerLocalList
         | None ->
             if userdata.Followers.IsEmpty then
                 printfn "Current user has no followers to share tweet"
@@ -180,11 +180,13 @@ let LogOutUser (userCreds: LogOutUser) =
 
 let FollowUser (followee: string, follower: string) =
     let userdata = GetUserDetails(followee)
-    let followers = [follower] @ userdata.Followers
-    let followerLocalList = followersMap.TryFind(followee)
-    match followerLocalList with
-        | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
-        | None -> followersMap <- followersMap.Add(followee, followers)
+    if (userdata.Username <> "") then
+        let followerLocalList = followersMap.TryFind(followee)
+        match followerLocalList with
+            | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
+            | None -> followersMap <- followersMap.Add(userdata.Username, (followersMap.[userdata.Username]).Add(follower))
+    else
+        printfn "User does not exist"
 
 let SendTweets (username: string, tweet: string) =
     let tempRow = tweetDataTable.NewRow()
