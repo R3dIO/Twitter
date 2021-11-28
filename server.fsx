@@ -3,21 +3,16 @@
 #load "datatype.fsx"
 
 open System
-open Akka.Actor
-open Akka.FSharp
 open System.Collections.Generic
 open System.Text.RegularExpressions
-open FSharpPlus
-open Suave
 open System.Data
+open Akka.Actor
+open Akka.FSharp
+open FSharpPlus
+open Akka.Configuration
+open Akka.Serialization
 open Database
 open Datatype
-
-let numUsers = fsi.CommandLineArgs.[1] |> int
-
-if numUsers <= 0 then
-    printfn "Invalid input"
-    Environment.Exit(0)
 
 let mutable UserCount = 0;
 let mutable TweetCount = 0;
@@ -27,6 +22,36 @@ let mutable followersMap: Map<string, Set<string>> = Map.empty
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
 let mutable hashtagsMap: Map<string, list<string>> = Map.empty
 let mutable mentionsMap: Map<string, list<string>> = Map.empty
+
+let serverConfig = 
+    ConfigurationFactory.ParseString(
+        @"akka {
+            actor {
+                provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
+                debug : {
+                    receive : on
+                    autoreceive : on
+                    lifecycle : on
+                    event-stream : on
+                    unhandled : on
+                }
+                serializers {
+                    hyperion = ""Akka.Serialization.HyperionSerializer, Akka.Serialization.Hyperion""
+                }
+                serialization-bindings {
+                    ""System.Object"" = hyperion
+                }                
+            }
+            remote {
+                helios.tcp {
+                    port = 9090
+                    hostname = 10.20.242.35
+                }
+            }
+        }")
+
+let serverSystem = System.create "TwitterServer" serverConfig
+
 //-------------------------------------- Initialization --------------------------------------//
 
 //-------------------------------------- Server --------------------------------------//
@@ -145,40 +170,39 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
         else 
             printfn "User Does not exist" 
   
-let RegisterUser (userInfo:userDetails) =
+let Register (userInfo:userDetails) =
     let tempRow = userDataTable.NewRow()
     tempRow.SetField("Username", userInfo.Username)
     tempRow.SetField("FirstName", userInfo.Firstname)
     tempRow.SetField("LastName", userInfo.Lastname)
     tempRow.SetField("Email", userInfo.Email)
     tempRow.SetField("Password",userInfo.Password)
-    tempRow.SetField("ActorObj",userInfo.Userobj)
+    tempRow.SetField("ActorObjPath",userInfo.Userobj)
     tempRow.SetField("Followers",[])
     userDataTable.Rows.Add(tempRow)
     UserCount <- UserCount + 1
 
-let LoginUser (userCreds: LogInUser) =
-    let mutable loginExpression = "Username = '" + userCreds.username + "'"
+let LogIn (userCreds: UserLogIn) =
+    let mutable loginExpression = "Username = '" + userCreds.Username + "'"
     let mutable userDetailRows = (userDataTable.Select(loginExpression))
     if (userDetailRows.Length > 0) then
         let userDetailRow = userDetailRows.[0]
         let UserName  = userDetailRow.Field(userDataTable.Columns.Item(0))
         let UserPasswd = userDetailRow.Field(userDataTable.Columns.Item(1))
         let UserObj = userDetailRow.Field(userDataTable.Columns.Item(5))
-        if (UserPasswd = userCreds.password) then
+        if (UserPasswd = userCreds.Password) then
             OnlineUsers <- OnlineUsers.Add(UserName, UserObj)
-            if (pendingTweets.ContainsKey(userCreds.username)) then
-                let localTweetList = pendingTweets.[userCreds.username]
-                for tweet in localTweetList do
-                    let tweetObj = GetTweetDetails(tweet)
-                    UserObj <! ReceieveTweet tweetObj
-                pendingTweets <- pendingTweets.Add(userCreds.username, [])
+            if (pendingTweets.ContainsKey(userCreds.Username)) then
+                let localTweetIdList = pendingTweets.[userCreds.Username]
+                let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
+                UserObj <! ReceieveTweetUser(localTweetList,"Pending")
+                pendingTweets <- pendingTweets.Add(userCreds.Username, [])
 
-let LogOutUser (userCreds: LogOutUser) =
-    if (OnlineUsers.ContainsKey(userCreds.username)) then
-        OnlineUsers <- OnlineUsers.Remove(userCreds.username)
+let LogOut (userCreds: UserLogOut) =
+    if (OnlineUsers.ContainsKey(userCreds.Username)) then
+        OnlineUsers <- OnlineUsers.Remove(userCreds.Username)
 
-let FollowUser (followee: string, follower: string) =
+let Follow (followee: string, follower: string) =
     let userdata = GetUserDetails(followee)
     if (userdata.Username <> "") then
         let followerLocalList = followersMap.TryFind(followee)
@@ -201,7 +225,7 @@ let SendTweets (username: string, tweet: string) =
     let followerList = GetFollowers(username)
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
-            OnlineUsers.[users] <! ReceieveTweet userTweet
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], "Live")
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
@@ -224,14 +248,14 @@ let ReTweets (username: string, tweetID: string) =
         userDataTable.Rows.Add(tempRow)
 
         if (OnlineUsers.ContainsKey(users)) then
-            OnlineUsers.[users] <! ReceieveTweet userTweet
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet],"Live")
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
             else    
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
 
-let Server(mailbox: Actor<_>) =
+let ServerActor(mailbox: Actor<_>) =
     
     let mutable searchCount = 0
 
@@ -240,14 +264,17 @@ let Server(mailbox: Actor<_>) =
         let response = mailbox.Sender();
         try
             match msg with 
-                | SignUpUser (userData) -> 
-                   RegisterUser userData
+                | SignUpReqServer (userData) -> 
+                   Register userData
 
-                | Login (userCreds:LogInUser) ->
-                   LoginUser userCreds
+                | LogInReqServer (userCreds: UserLogIn) ->
+                   LogIn userCreds
 
-                | Logout (userCreds:LogOutUser) ->
-                   LogOutUser userCreds
+                | LogOutReqServer (userCreds: UserLogOut) ->
+                   LogOut userCreds
+
+                | FollowReqServer (followeID: string, followerID: string) ->
+                    Follow (followeID, followerID)
 
                 | SendTweets (username: string, tweet: string) ->
                     SendTweets (username, tweet)
@@ -256,14 +283,18 @@ let Server(mailbox: Actor<_>) =
                     ReTweets (username, tweetID)
 
                 | SearchHashtag (searchString: string) ->
-                    SearchHashTagAndMentions (searchString, "HashTag")
-                
-                | SearchMention (searchString: string) ->
-                    SearchHashTagAndMentions (searchString, "Mention")
+                    let userTweetList = SearchHashTagAndMentions (searchString, "HashTag")
 
-                | _ -> ()
+
+                | SearchMention (searchString: string) ->
+                    let userTweetList = SearchHashTagAndMentions (searchString, "Mention")
+
+                | _ -> printfn  "Invalid operation"
         with
             | :? System.IndexOutOfRangeException -> printfn "ERROR: Tried to access outside array!" |> ignore
         return! loop()
     }            
     loop()
+
+let server = spawn serverSystem "TwitterServer" (ServerActor)
+printfn "server: %A" server.Path
