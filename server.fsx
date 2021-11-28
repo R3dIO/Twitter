@@ -64,17 +64,15 @@ let getHashNumFromSha1(s: string) =
 let GetUserDetails(username: string) =
     let userExpression = "Username = '" + username + "'"
     let userDetailRows = (userDataTable.Select(userExpression))
-    let mutable UserDetails = {Username=""; Firstname=""; Lastname=""; Email=""; Password=""; Userobj=null; Followers=[]}
+    let mutable UserDetails = {Username=""; Email=""; Password=""; Userobj=null; Followers=[]}
     if (userDetailRows.Length > 0) then
         let userDetailRow = userDetailRows.[0]        
         let UserName = userDetailRow.Field(userDataTable.Columns.Item(0))
         let UserPasswd = userDetailRow.Field(userDataTable.Columns.Item(1))
-        let FirstName = userDetailRow.Field(userDataTable.Columns.Item(2))
-        let LastName = userDetailRow.Field(userDataTable.Columns.Item(3))
         let Mail = userDetailRow.Field(userDataTable.Columns.Item(4))
         let UserObj = userDetailRow.Field(userDataTable.Columns.Item(5))
         let FollowersList = userDetailRow.Field(userDataTable.Columns.Item(6))
-        UserDetails <- { Username=UserName; Firstname=FirstName; Lastname=LastName; Email=Mail; Password=UserPasswd; Userobj=UserObj; Followers=FollowersList }
+        UserDetails <- { Username=UserName; Email=Mail; Password=UserPasswd; Userobj=UserObj; Followers=FollowersList }
     UserDetails
 
 let GetTweetDetails(tweetId: string) =
@@ -170,11 +168,9 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
         else 
             printfn "User Does not exist" 
   
-let Register (userInfo:userDetails) =
+let Register (userInfo: UserDetails) =
     let tempRow = userDataTable.NewRow()
     tempRow.SetField("Username", userInfo.Username)
-    tempRow.SetField("FirstName", userInfo.Firstname)
-    tempRow.SetField("LastName", userInfo.Lastname)
     tempRow.SetField("Email", userInfo.Email)
     tempRow.SetField("Password",userInfo.Password)
     tempRow.SetField("ActorObjPath",userInfo.Userobj)
@@ -264,7 +260,7 @@ let ServerActor(mailbox: Actor<_>) =
         let response = mailbox.Sender();
         try
             match msg with 
-                | SignUpReqServer (userData) -> 
+                | SignUpReqServer (userData: UserDetails) -> 
                    Register userData
 
                 | LogInReqServer (userCreds: UserLogIn) ->
@@ -292,7 +288,7 @@ let ServerActor(mailbox: Actor<_>) =
                     if (OnlineUsers.ContainsKey(username)) then
                         OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
 
-                | _ -> printfn  "Invalid operation"
+                | _ -> printfn "Invalid operation"
         with
             | :? System.IndexOutOfRangeException -> printfn "ERROR: Tried to access outside array!" |> ignore
         return! loop()

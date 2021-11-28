@@ -37,7 +37,7 @@ let ClientConfig =
             }
             remote {
                 helios.tcp {
-                    port = 0
+                    port = 8000
                     hostname = localhost
                 }
             }
@@ -51,6 +51,16 @@ if numClients <= 0 then
 
 let rand = Random(DateTime.Now.Millisecond)
 
+let alphaNumeric = "abcdefghijklmnopqrstuvxyz1234567890"
+ 
+let getRandomString (strlen) = 
+    let mutable randomValue = ""
+    for i in 0..strlen do
+        let randomChar = alphaNumeric.Chars (rand.Next (alphaNumeric.Length - 1))
+        randomValue <- randomValue + string(randomChar) 
+    done
+    randomValue
+
 let clientSystem = System.create "TwitterClient" ClientConfig
 
 let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: TweetTypeMessage) =
@@ -63,7 +73,7 @@ let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: Tw
 
 let ClientActor userId system (mailbox:Actor<_>) =
     let username = userId
-    let mutable password = ""
+    let mutable password = getRandomString(10)
     let mutable isLoggedIn = false
     let mutable myTweets: list<tweetDetailsRecord> = list.Empty
     let mutable newTweetCount = 0
@@ -76,9 +86,13 @@ let ClientActor userId system (mailbox:Actor<_>) =
         filterFrontList
 
     let ServerActObjRef = select ("akka.tcp://ServerActor@192.168.0.94:9001/user/TwitterServer") system
+
     let rec loop () = actor {
         let! message = mailbox.Receive()
         match message with
+            | SignUpUser ->
+                new UserDetails(username, username + "@ufl.com", password, "akka.tcp://ClientActor@localhost:8000/user/Client" + (string username))
+
             | LogOutUser -> 
                 isLoggedIn <- false
                 printfn "User %s logged out from Twitter." username
@@ -132,6 +146,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
     }
     loop ()
 
-let clients = Array.zeroCreate (numClients + 1)
+let mutable userMap = Map.empty
 for id in 0..numClients do
-    clients.[id] <- spawn clientSystem ("User"+(string id)) ClientActor(id)
+    let username = ("User" + string id)
+    userMap <- userMap.Add(username, (spawn clientSystem ("Client"+(string id)) (ClientActor username clientSystem)))

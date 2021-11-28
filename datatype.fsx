@@ -7,14 +7,15 @@ open System.Collections.Generic
 open Akka.Actor
 open Akka.FSharp
 
-type userDetails =
+type UserDetails =
     struct
         val Username: string
-        val Firstname: string
-        val Lastname: string
         val Email: string
         val Password : string
         val Userobj : string
+
+        new (username, email, password, userobjPath) = 
+            { Username = username; Email = email; Password = password; Userobj = userobjPath;}
     end
 
 type UserLogIn =
@@ -42,8 +43,6 @@ type tweetDetails =
 
 type userDetailsRecord = {
     Username: string;
-    Firstname: string;
-    Lastname: string;
     Email: string;
     Password: string;
     Userobj: string;
@@ -62,7 +61,7 @@ type TweetTypeMessage =
     | Search
 
 type ServerMessage = 
-    | SignUpReqServer of userDetails
+    | SignUpReqServer of UserDetails
     | LogInReqServer of UserLogIn
     | LogOutReqServer of UserLogOut
     | FollowReqServer of string * string
