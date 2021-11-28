@@ -14,19 +14,23 @@ type userDetails =
         val Lastname: string
         val Email: string
         val Password : string
-        val Userobj : IActorRef
+        val Userobj : string
     end
 
-type LogInUser =
+type UserLogIn =
     struct
-        val username : string
-        val password : string
+        val Username : string
+        val Password : string
+
+        new (username, password) = {Username = username; Password = password;}
     end
 
-type LogOutUser =
+type UserLogOut =
     struct
-        val username : string
-        val actorObj : IActorRef
+        val Username : string
+        val ActorObj : IActorRef
+
+        new (username, actorObj) = {Username = username; ActorObj = actorObj;}
     end
 
 type tweetDetails =
@@ -42,7 +46,7 @@ type userDetailsRecord = {
     Lastname: string;
     Email: string;
     Password: string;
-    Userobj: IActorRef;
+    Userobj: string;
     Followers: list<string>;
 }
 
@@ -52,14 +56,29 @@ type tweetDetailsRecord = {
     Tweet : string;
 }
 
+type TweetTypeMessage = 
+    | Live 
+    | Pending
+    | Search
+
 type ServerMessage = 
-    | Login of LogInUser
-    | Logout of LogOutUser
-    | SignUpUser of userDetails
+    | SignUpReqServer of userDetails
+    | LogInReqServer of UserLogIn
+    | LogOutReqServer of UserLogOut
+    | FollowReqServer of string * string
     | SendTweets of string * string
     | ReTweets of string * string
     | SearchHashtag of string
     | SearchMention of string
 
 type ClientMessage = 
-    | ReceieveTweet of tweetDetailsRecord
+    | LogInUser
+    | LogOutUser
+    | SignUpUser
+    | SendTweetUser of string
+    | ReTweetsUser of string * string
+    | FollowUser of string
+    | SearchHashtagUser of string
+    | SearchMentionUser of string
+    | ReceieveTweetUser of list<tweetDetailsRecord> * TweetTypeMessage
+

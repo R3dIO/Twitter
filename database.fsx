@@ -17,7 +17,7 @@ userDataTable.Columns.Add("Password", typeof<string>)
 userDataTable.Columns.Add("Firstname", typeof<string>)
 userDataTable.Columns.Add("Lastname", typeof<string>)
 userDataTable.Columns.Add("Email", typeof<string>)
-userDataTable.Columns.Add("ActorObj", typeof<IActorRef>)
+userDataTable.Columns.Add("ActorObj", typeof<string>)
 userDataTable.Columns.Add("Followers", typeof<list<string>>)
 userDataTable.PrimaryKey <- [|userDataTable.Columns.["Username"]|]
 database.Tables.Add(userDataTable)
