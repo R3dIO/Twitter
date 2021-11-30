@@ -111,11 +111,11 @@ let ClientActor userId system (mailbox:Actor<_>) =
     let mutable myTweets: list<tweetDetailsRecord> = list.Empty
     let mutable newTweetCount = 0
     
-    let takeNTweets maxCount =
-        let filterFrontList = new List<tweetDetailsRecord>()
-        let number = if maxCount < myTweets.Length then maxCount else myTweets.Length
+    let getFirstNTweets(maxCount: int, tweetList: list<tweetDetailsRecord>) =
+        let mutable filterFrontList = list.Empty
+        let number = if maxCount < tweetList.Length then maxCount else tweetList.Length
         for i in [0..number-1] do
-            filterFrontList.Add(myTweets.[i])
+            filterFrontList <- tweetList.[i] :: filterFrontList
         filterFrontList
 
     let ServerActObjRef = select ("akka.tcp://ServerActor@localhost:9090/user/TwitterServer") system
@@ -138,8 +138,9 @@ let ClientActor userId system (mailbox:Actor<_>) =
                 printfn "User %s logged in to Twitter successfully." username
                 let userObj = new UserLogIn(username, password)
                 ServerActObjRef <! LogInReqServer userObj
+                let newTweets = getFirstNTweets(newTweetCount, myTweets)
+                viewTweets(username, newTweets, Live)
                 newTweetCount <- 0
-                viewTweets(username,  myTweets, Live)
             
             | FollowUser(toFollowId) -> 
                 if isLoggedIn then
@@ -167,10 +168,10 @@ let ClientActor userId system (mailbox:Actor<_>) =
                 match tweetType with 
                     | Live ->
                         if isLoggedIn then
-                            myTweets <- myTweets @ tweetList
+                            myTweets <- tweetList @ myTweets 
                             viewTweets(username, myTweets, Live)
                     | Pending -> 
-                        myTweets <- myTweets @ tweetList
+                        myTweets <- tweetList @ myTweets
                         newTweetCount <- newTweetCount + tweetList.Length
                     | Search ->
                         viewTweets(username, tweetList, Search)
