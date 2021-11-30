@@ -156,9 +156,8 @@ let ClientActor userId system (mailbox:Actor<_>) =
                     ServerActObjRef <! FollowReqServer (username, toFollowId)
 
             | SendTweetUser(tweet) -> 
-                printfn "Send tweet recieved"
+                printfn "User %s  requested to send tweet." username
                 if isLoggedIn then
-                    printfn "User %s tweeted %s" username tweet
                     ServerActObjRef <! SendTweets(username, tweet+"- by User "+ username)
 
             | ReTweetUser -> 
@@ -221,16 +220,16 @@ for i in 0..numClients do
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
-// for id in 0..numClients do
-//     let followee = userMap.["User"+string id]
-//     for j in 0..id do
-//         let mutable probabilityNum = rand.Next(5)
-//         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-//         randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) "")
-//         probabilityNum <- rand.Next(100)
-//         if (probabilityNum > 70) then
-//             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
-//         followee <! SendTweetUser randomTweet
+for id in 0..numClients do
+    let followee = userMap.["User"+string id]
+    for j in 0..id do
+        let mutable probabilityNum = rand.Next(5)
+        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
+        randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
+        probabilityNum <- rand.Next(100)
+        if (probabilityNum > 70) then
+            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
+        followee <! SendTweetUser randomTweet
 
 // // Sharing random ReTweets 
 // for id in 0..numClients do

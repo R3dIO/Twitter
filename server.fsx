@@ -173,6 +173,7 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
             printfn "User Does not exist" 
   
 let Register (userInfo: UserDetails) =
+    let mutable response = "Register"
     let tempRow = userDataTable.NewRow()
     tempRow.SetField("Username", userInfo.Username)
     tempRow.SetField("Email", userInfo.Email)
@@ -181,9 +182,11 @@ let Register (userInfo: UserDetails) =
     tempRow.SetField("Followers","")
     userDataTable.Rows.Add(tempRow)
     UserCount <- UserCount + 1
+    response <- response + ":" + "User Successfully registered"
+    response
 
 let LogIn (userCreds: UserLogIn) =
-    let mutable response = ""
+    let mutable response = "LogIn"
     let mutable loginExpression = "Username = '" + userCreds.Username + "'"
     let mutable userDetailRows = (userDataTable.Select(loginExpression))
     if (userDetailRows.Length > 0) then
@@ -207,7 +210,7 @@ let LogIn (userCreds: UserLogIn) =
     response
 
 let LogOut (userCreds: UserLogOut) =
-    let mutable response = ""
+    let mutable response = "LogOut"
     if (OnlineUsers.ContainsKey(userCreds.Username)) then
         OnlineUsers <- OnlineUsers.Remove(userCreds.Username)
     else
@@ -215,7 +218,7 @@ let LogOut (userCreds: UserLogOut) =
     response
 
 let Follow (followee: string, follower: string) =
-    let mutable response = ""
+    let mutable response = "Follow"
     let userdata = GetUserDetails(followee)
     let userdataFollower = GetUserDetails(follower)
     if (userdata.Username <> "" && userdataFollower.Username <> "") then
@@ -235,6 +238,7 @@ let Follow (followee: string, follower: string) =
 
 
 let SendTweets (username: string, tweet: string) =
+    let mutable response = "SendTweet"
     let tempRow = tweetDataTable.NewRow()
     let tweetHash = string (getHashNumFromSha1(username + tweet))
     tempRow.SetField("TweetID", tweetHash)
@@ -254,6 +258,8 @@ let SendTweets (username: string, tweet: string) =
             else    
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
     TweetCount <- TweetCount + 1
+    response <- response + ":" + "Successfully shared tweet with TweetID" + userTweet.TweetID
+    response
 
 let ReTweets (username: string, tweetID: string) =
     let userTweet = GetTweetDetails(tweetID)
@@ -288,7 +294,9 @@ let ServerActor(mailbox: Actor<_>) =
             match msg with 
                 | SignUpReqServer (userData: UserDetails) -> 
                     if printUpdate then printfn "User %s reqested to register" userData.Username
-                    Register userData
+                    let response = Register userData
+                    let actorObj = select (GetUserDetails(userData.Username).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | LogInReqServer (userCreds: UserLogIn) ->
                     if printUpdate then printfn "User %s reqested to login" userCreds.Username
@@ -309,7 +317,10 @@ let ServerActor(mailbox: Actor<_>) =
                     actorObj <! UserRequestResponse response
 
                 | SendTweets (username: string, tweet: string) ->
-                    SendTweets (username, tweet)
+                    if printUpdate then printfn "User %s tweeted %s" username tweet
+                    let response = SendTweets (username, tweet)
+                    let actorObj = select (GetUserDetails(username).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | ReTweets (username: string, tweetID: string) ->
                     ReTweets (username, tweetID)
