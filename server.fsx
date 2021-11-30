@@ -8,7 +8,6 @@ open System.Text.RegularExpressions
 open System.Data
 open Akka.Actor
 open Akka.FSharp
-open FSharpPlus
 open Akka.Configuration
 open Akka.Serialization
 open Database
@@ -26,6 +25,9 @@ let mutable mentionsMap: Map<string, list<string>> = Map.empty
 let serverConfig = 
     ConfigurationFactory.ParseString(
         @"akka {
+            log-config-on-start : on
+            stdout-loglevel : DEBUG
+            loglevel : ERROR
             actor {
                 provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
                 debug : {
@@ -312,5 +314,5 @@ let ServerActor(mailbox: Actor<_>) =
 
 let server = spawn serverSystem "TwitterServer" (ServerActor)
 printfn "server: %A" server.Path
-
+Console.ReadLine() |> ignore
 //-------------------------------------- Server --------------------------------------//
