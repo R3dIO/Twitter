@@ -100,11 +100,11 @@ let GetFollowers(username: string) =
    
     match followerLocalList with
         | Some(followerLocalList) -> 
-            printfn $"Found {followerLocalList.Count} followers for {username}"
+            if printUpdate then printfn $"Found {followerLocalList.Count} followers for {username}"
             followerList <- Set.toList followerLocalList
         | None ->
             if userdata.Followers = "" then
-                printfn "Current user has no followers to share tweet"
+                if printUpdate then printfn "Current user has no followers to share tweet"
             else 
                 followerList <- splitLine userdata.Followers
     followerList
@@ -253,7 +253,7 @@ let SendTweets (username: string, tweet: string) =
     let followerList = GetFollowers(username)
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
-            printfn $"Send tweet {userTweet} to user {users}"
+            if printUpdate then printfn $"Send tweet {userTweet} to user {users}"
             OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live)
         else
             if (pendingTweets.ContainsKey(users)) then
