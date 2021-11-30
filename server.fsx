@@ -145,7 +145,7 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
     for hashtag in hashtagsMatchCollection do
         if useDataTable then
             let insertTempRow = HashTagDataTable.NewRow()
-            insertTempRow.["HashTag"] <- hashtag
+            insertTempRow.["HashTag"] <- hashtag.Value
             insertTempRow.["TweetID"] <- tweetID
             HashTagDataTable.Rows.Add(insertTempRow)
         else
@@ -160,10 +160,10 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
         let userDetails = GetUserDetails(username)
         if (userDetails.Username <> "") then
             if useDataTable then
-                let insertTempRow = HashTagDataTable.NewRow()
-                insertTempRow.["Mention"] <- mention
+                let insertTempRow = MentionDataTable.NewRow()
+                insertTempRow.["Mention"] <- mention.Value
                 insertTempRow.["TweetID"] <- tweetID
-                HashTagDataTable.Rows.Add(insertTempRow)
+                MentionDataTable.Rows.Add(insertTempRow)
             else
                 if (mentionsMap.ContainsKey(mention.Value)) then
                     mentionsMap <- mentionsMap.Add(mention.Value, mentionsMap.[mention.Value] @ [tweetID])
@@ -251,6 +251,7 @@ let SendTweets (username: string, tweet: string) =
     let followerList = GetFollowers(username)
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
+            printfn $"Send tweet {userTweet} to user {users}"
             OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live)
         else
             if (pendingTweets.ContainsKey(users)) then

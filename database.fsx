@@ -32,17 +32,21 @@ database.Tables.Add(ReTweetDataTable)
 
 let HashTagDataTable = new DataTable("HashTag")
 let HashTagId = HashTagDataTable.Columns.Add("HashTagID", typeof<int32>);
-HashTagId.AutoIncrement = true;
+// HashTagId.AutoIncrement = true;
+// HashTagId.AutoIncrementSeed = 1L;
+// HashTagId.AutoIncrementStep = 1L;
 HashTagDataTable.Columns.Add("HashTag", typeof<string>);
 HashTagDataTable.Columns.Add("TweetID", typeof<string>);
-HashTagDataTable.PrimaryKey <- [|HashTagDataTable.Columns.["HashTagID"]|]
+// HashTagDataTable.PrimaryKey <- [|HashTagDataTable.Columns.["HashTagID"]|]
 database.Tables.Add(HashTagDataTable)
 
 let MentionDataTable = new DataTable("Mention")
 let MentionID = MentionDataTable.Columns.Add("MentionID", typeof<int32>);
-MentionID.AutoIncrement = true;
+// MentionID.AutoIncrement = true;
+// MentionID.AutoIncrementSeed = 1L;
+// MentionID.AutoIncrementStep = 1L;
 MentionDataTable.Columns.Add("Mention", typeof<string>);
 MentionDataTable.Columns.Add("TweetID", typeof<string>);
-MentionDataTable.PrimaryKey <- [|MentionDataTable.Columns.["MentionID"]|]
+// MentionDataTable.PrimaryKey <- [|MentionDataTable.Columns.["MentionID"]|]
 database.Tables.Add(MentionDataTable)
 
