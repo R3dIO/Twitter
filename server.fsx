@@ -13,9 +13,10 @@ open Akka.Serialization
 open Database
 open Datatype
 
+let useDataTable = true;
+let printUpdate = false;
 let mutable UserCount = 0;
 let mutable TweetCount = 0;
-let useDataTable = true;
 let mutable OnlineUsers :Map<string,ActorSelection> = Map.empty
 let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
@@ -66,7 +67,7 @@ let getHashNumFromSha1(s: string) =
 let GetUserDetails(username: string) =
     let userExpression = "Username = '" + username + "'"
     let userDetailRows = (userDataTable.Select(userExpression))
-    let mutable UserDetails = {Username=""; Email=""; Password=""; Userobj=null; Followers=[]}
+    let mutable UserDetails = {Username=""; Email=""; Password=""; Userobj=null; Followers=""}
     if (userDetailRows.Length > 0) then
         let userDetailRow = userDetailRows.[0]        
         let UserName = userDetailRow.Field(userDataTable.Columns.Item(0))
@@ -90,6 +91,7 @@ let GetTweetDetails(tweetId: string) =
     TweetDetails
 
 let GetFollowers(username: string) =
+    let splitLine = (fun (line : string) -> Seq.toList (line.Split ';'))
     let userdata = GetUserDetails(username)
     let followerLocalList = followersMap.TryFind(username)
     let mutable followerList = list.Empty
@@ -99,10 +101,10 @@ let GetFollowers(username: string) =
             printfn "Found %i followers for user %s" followerLocalList.Count username
             followerList <- Set.toList followerLocalList
         | None ->
-            if userdata.Followers.IsEmpty then
+            if userdata.Followers = "" then
                 printfn "Current user has no followers to share tweet"
             else 
-                followerList <- userdata.Followers
+                followerList <- splitLine userdata.Followers
     followerList
 
 let SearchHashTagAndMentions (searchString: string, searchType: string) =
@@ -176,7 +178,7 @@ let Register (userInfo: UserDetails) =
     tempRow.SetField("Email", userInfo.Email)
     tempRow.SetField("Password",userInfo.Password)
     tempRow.SetField("ActorObjPath",userInfo.Userobj)
-    tempRow.SetField("Followers",[])
+    tempRow.SetField("Followers","")
     userDataTable.Rows.Add(tempRow)
     UserCount <- UserCount + 1
 
@@ -192,6 +194,7 @@ let LogIn (userCreds: UserLogIn) =
         let UserObj = serverSystem.ActorSelection(UserObjPath.ToString())
         if (UserPasswd = userCreds.Password) then
             OnlineUsers <- OnlineUsers.Add(UserName, UserObj)
+            response <- response + ":" + "User logged in succesfully" + UserName
             if (pendingTweets.ContainsKey(userCreds.Username)) then
                 let localTweetIdList = pendingTweets.[userCreds.Username]
                 let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
@@ -216,10 +219,16 @@ let Follow (followee: string, follower: string) =
     let userdata = GetUserDetails(followee)
     let userdataFollower = GetUserDetails(follower)
     if (userdata.Username <> "" && userdataFollower.Username <> "") then
-        let followerLocalList = followersMap.TryFind(followee)
-        match followerLocalList with
-            | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
-            | None -> followersMap <- followersMap.Add(userdata.Username, (followersMap.[userdata.Username]).Add(follower))
+        if useDataTable then
+            let row:DataRow = userDataTable.NewRow()
+            row.["Username"] <- userdata.Username
+            row.["Followers"] <- userdata.Followers + ";" + userdataFollower.Username
+            userDataTable.Rows.Add row
+        else
+            let followerLocalList = followersMap.TryFind(followee)
+            match followerLocalList with
+                | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
+                | None -> followersMap <- followersMap.Add(userdata.Username, (followersMap.[userdata.Username]).Add(follower))
     else
         response <- response + ":" + "Followe or Follower does not exist"
     response
@@ -278,16 +287,26 @@ let ServerActor(mailbox: Actor<_>) =
         try
             match msg with 
                 | SignUpReqServer (userData: UserDetails) -> 
-                   Register userData
+                    if printUpdate then printfn "User %s reqested to register" userData.Username
+                    Register userData
 
                 | LogInReqServer (userCreds: UserLogIn) ->
-                   LogIn userCreds
+                    if printUpdate then printfn "User %s reqested to login" userCreds.Username
+                    let response = LogIn userCreds
+                    let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | LogOutReqServer (userCreds: UserLogOut) ->
-                   LogOut userCreds
+                    if printUpdate then printfn "User %s reqested to logout" userCreds.Username
+                    let response = LogOut userCreds
+                    let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | FollowReqServer (followeID: string, followerID: string) ->
-                   Follow (followeID, followerID)
+                    if printUpdate then printfn "User %s reqested to follow %s" followeID followerID
+                    let response = Follow (followeID, followerID)
+                    let actorObj = select (GetUserDetails(followeID).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | SendTweets (username: string, tweet: string) ->
                     SendTweets (username, tweet)
