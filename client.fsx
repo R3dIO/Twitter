@@ -132,7 +132,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
         match message with
             | SignUpUser ->
                 printfn "User %s  requested to Sign up." username
-                let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://TwitterClient@localhost:8000/user/Client" + (string username))
+                let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://TwitterClient@localhost:8000/user/" + (string username))
                 ServerActObjRef <! SignUpReqServer userDetails
 
             | LogOutUser -> 
@@ -195,7 +195,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
 let mutable userMap = Map.empty
 for id in 0..numClients do
     let username = ("User" + string id)
-    userMap <- userMap.Add(username, (spawn clientSystem ("Client"+(string id)) (ClientActor username clientSystem)))
+    userMap <- userMap.Add(username, (spawn clientSystem (username) (ClientActor username clientSystem)))
 
 //-------------------------------------- Client --------------------------------------//
 
