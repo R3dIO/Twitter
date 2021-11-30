@@ -17,6 +17,8 @@ let useDataTable = true;
 let printUpdate = false;
 let mutable UserCount = 0;
 let mutable TweetCount = 0;
+let mutable SearchCount = 0;
+let mutable RequestCount = 0;
 let mutable OnlineUsers :Map<string,ActorSelection> = Map.empty
 let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
@@ -65,7 +67,7 @@ let getHashNumFromSha1(s: string) =
     |> System.Text.Encoding.ASCII.GetString
 
 let GetUserDetails(username: string) =
-    let userExpression = "Username = '" + username + "'"
+    let userExpression = $"Username = '{username}'"
     let userDetailRows = (userDataTable.Select(userExpression))
     let mutable UserDetails = {Username=""; Email=""; Password=""; Userobj=null; Followers=""}
     if (userDetailRows.Length > 0) then
@@ -79,7 +81,7 @@ let GetUserDetails(username: string) =
     UserDetails
 
 let GetTweetDetails(tweetId: string) =
-    let tweetExpression = "TweetID = '" + tweetId + "'"
+    let tweetExpression = $"TweetID = '{tweetId}'"
     let tweetDetailRows = (tweetDataTable.Select(tweetExpression))
     let mutable TweetDetails = {TweetID="";  Username=""; Tweet=""}
     if (tweetDetailRows.Length > 0) then
@@ -98,7 +100,7 @@ let GetFollowers(username: string) =
    
     match followerLocalList with
         | Some(followerLocalList) -> 
-            printfn "Found %i followers for user %s" followerLocalList.Count username
+            printfn $"Found {followerLocalList.Count} followers for {username}"
             followerList <- Set.toList followerLocalList
         | None ->
             if userdata.Followers = "" then
@@ -111,7 +113,7 @@ let SearchHashTagAndMentions (searchString: string, searchType: string) =
         let mutable tweetList = list.Empty
         if (searchType = "HashTag") then
             if (useDataTable) then
-                let HashTagExpression = "HashTag = '" + searchString + "'"
+                let HashTagExpression = $"HashTag = '{searchString}'"
                 let HashTagDetailRows = (HashTagDataTable.Select(HashTagExpression))
                 if (HashTagDetailRows.Length > 0) then
                     for tweetID in HashTagDetailRows do
@@ -125,7 +127,7 @@ let SearchHashTagAndMentions (searchString: string, searchType: string) =
 
         elif (searchType = "Mention") then
             if (useDataTable) then
-                let MentionExpression = "Mention = '" + searchString + "'"
+                let MentionExpression = $"Mention = '{searchString}'"
                 let MentionDetailRows = (HashTagDataTable.Select(MentionExpression))
                 if (MentionDetailRows.Length > 0) then
                     for tweetID in MentionDetailRows do
@@ -182,12 +184,12 @@ let Register (userInfo: UserDetails) =
     tempRow.SetField("Followers","")
     userDataTable.Rows.Add(tempRow)
     UserCount <- UserCount + 1
-    response <- response + ":" + "User Successfully registered"
+    response <- response + " : " + "User Successfully registered"
     response
 
 let LogIn (userCreds: UserLogIn) =
     let mutable response = "LogIn"
-    let mutable loginExpression = "Username = '" + userCreds.Username + "'"
+    let mutable loginExpression = $"Username = '{userCreds.Username}'"
     let mutable userDetailRows = (userDataTable.Select(loginExpression))
     if (userDetailRows.Length > 0) then
         let userDetailRow = userDetailRows.[0]
@@ -197,16 +199,16 @@ let LogIn (userCreds: UserLogIn) =
         let UserObj = serverSystem.ActorSelection(UserObjPath.ToString())
         if (UserPasswd = userCreds.Password) then
             OnlineUsers <- OnlineUsers.Add(UserName, UserObj)
-            response <- response + ":" + "User logged in succesfully" + UserName
+            response <- response + ": " + "User logged in succesfully" + UserName
             if (pendingTweets.ContainsKey(userCreds.Username)) then
                 let localTweetIdList = pendingTweets.[userCreds.Username]
                 let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
                 UserObj <! ReceieveTweetUser(localTweetList,Pending)
                 pendingTweets <- pendingTweets.Add(userCreds.Username, [])
         else
-            response <- response + ":" + "Incorrect password"
+            response <- response + " : " + "Incorrect password"
     else 
-        response <- response + ":" + "User not found"
+        response <- response + " : " + "User not found"
     response
 
 let LogOut (userCreds: UserLogOut) =
@@ -214,7 +216,7 @@ let LogOut (userCreds: UserLogOut) =
     if (OnlineUsers.ContainsKey(userCreds.Username)) then
         OnlineUsers <- OnlineUsers.Remove(userCreds.Username)
     else
-        response <- response + ":" + "User Isn't logged in"
+        response <- response + " : " + "User Isn't logged in"
     response
 
 let Follow (followee: string, follower: string) =
@@ -226,14 +228,14 @@ let Follow (followee: string, follower: string) =
             let row = userDataTable.Select("Username='" + followee + "'")
             row.[0].["Username"] <- userdata.Username
             row.[0].["Followers"] <- userdata.Followers + ";" + userdataFollower.Username
-            response <- response + ":" + $"User {userdataFollower.Username} is now following {userdata.Username}" 
+            response <- response + " : " + $"{userdata.Username} is now followed by {userdataFollower.Username}" 
         else
             let followerLocalList = followersMap.TryFind(followee)
             match followerLocalList with
                 | Some(followerLocalList) -> followersMap <- followersMap.Add(followee, followerLocalList)
                 | None -> followersMap <- followersMap.Add(userdata.Username, (followersMap.[userdata.Username]).Add(follower))
     else
-        response <- response + ":" + "Followe or Follower does not exist"
+        response <- response + " : " + "Followe or Follower does not exist"
     response
 
 
@@ -259,7 +261,7 @@ let SendTweets (username: string, tweet: string) =
             else    
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
     TweetCount <- TweetCount + 1
-    response <- response + ":" + "Successfully shared tweet with TweetID" + userTweet.TweetID
+    response <- response + " : " + "Successfully shared tweet with TweetID" + userTweet.TweetID
     response
 
 let ReTweets (username: string, tweetID: string) =
@@ -285,39 +287,38 @@ let ReTweets (username: string, tweetID: string) =
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
 
 let ServerActor(mailbox: Actor<_>) =
-    
-    let mutable searchCount = 0
-
     let rec loop()= actor{
         let! msg = mailbox.Receive();
         let response = mailbox.Sender();
+        RequestCount <- RequestCount + 1
         try
             match msg with 
                 | SignUpReqServer (userData: UserDetails) -> 
-                    if printUpdate then printfn "User %s reqested to register" userData.Username
+                    if printUpdate then printfn $"User {userData.Username} reqested to register" 
                     let response = Register userData
                     let actorObj = select (GetUserDetails(userData.Username).Userobj) serverSystem
                     actorObj <! UserRequestResponse response
 
                 | LogInReqServer (userCreds: UserLogIn) ->
-                    if printUpdate then printfn "User %s reqested to login" userCreds.Username
+                    if printUpdate then printfn $"User {userCreds.Username} reqested to login"
                     let response = LogIn userCreds
                     let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
                     actorObj <! UserRequestResponse response
 
                 | LogOutReqServer (userCreds: UserLogOut) ->
-                    if printUpdate then printfn "User %s reqested to logout" userCreds.Username
+                    if printUpdate then printfn $"User {userCreds.Username} reqested to logout"
                     let response = LogOut userCreds
                     let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
                     actorObj <! UserRequestResponse response
 
                 | FollowReqServer (followeID: string, followerID: string) ->
-                    if printUpdate then printfn "User %s reqested to follow %s" followeID followerID
+                    if printUpdate then printfn $"User {followeID} reqested to follow {followerID}"
                     let response = Follow (followeID, followerID)
                     let actorObj = select (GetUserDetails(followeID).Userobj) serverSystem
                     actorObj <! UserRequestResponse response
 
                 | SendTweets (username: string, tweet: string) ->
+                    TweetCount <- TweetCount + 1
                     if printUpdate then printfn "User %s tweeted %s" username tweet
                     let response = SendTweets (username, tweet)
                     let actorObj = select (GetUserDetails(username).Userobj) serverSystem
@@ -327,11 +328,13 @@ let ServerActor(mailbox: Actor<_>) =
                     ReTweets (username, tweetID)
 
                 | SearchHashtag (username: string, searchString: string) ->
+                    SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "HashTag")
                     if (OnlineUsers.ContainsKey(username)) then
                         OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
 
                 | SearchMention (username: string, searchString: string) ->
+                    SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "Mention")
                     if (OnlineUsers.ContainsKey(username)) then
                         OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)

@@ -106,9 +106,9 @@ let clientSystem = System.create "TwitterClient" ClientConfig
 let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: TweetTypeMessage) =
     match printType with
         | Live ->
-            for twt in tweets do printfn "User %s received tweet %s with tweet ID %s" username twt.Tweet twt.TweetID
+            for twt in tweets do printfn $"{username} received tweet {twt.Tweet} with tweet ID {twt.TweetID}"   
         | Search ->
-            for twt in tweets do printfn "User %s received tweet %s from user %s" username twt.Tweet twt.Username 
+            for twt in tweets do printfn $"{username} received tweet {twt.Tweet} from {twt.Username}"  
         | _ -> printfn "Unknown message type from print"
 
 let ClientActor userId system (mailbox:Actor<_>) =
@@ -131,19 +131,19 @@ let ClientActor userId system (mailbox:Actor<_>) =
         let! message = mailbox.Receive()
         match message with
             | SignUpUser ->
-                printfn "User %s  requested to Sign up." username
+                printfn $"User {username} requested to Sign up."
                 let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://TwitterClient@localhost:8000/user/" + (string username))
                 ServerActObjRef <! SignUpReqServer userDetails
 
             | LogOutUser -> 
                 isLoggedIn <- false
-                printfn "User %s  requested to Log out." username
+                printfn $"User {username}  requested to Log out."
                 let userObj = new UserLogOut(username, mailbox.Self)
                 ServerActObjRef <! LogOutReqServer userObj
 
             | LogInUser -> 
                 isLoggedIn <- true
-                printfn "User %s requested to Log in." username
+                printfn $"User {username} requested to Log in."
                 let userObj = new UserLogIn(username, password)
                 ServerActObjRef <! LogInReqServer userObj
                 let newTweets = getFirstNTweets(newTweetCount, myTweets)
@@ -152,11 +152,11 @@ let ClientActor userId system (mailbox:Actor<_>) =
             
             | FollowUser(toFollowId) -> 
                 if isLoggedIn then
-                    printfn "Recieved follow request for %s from %s" toFollowId username
+                    printfn $"Recieved follow request for {toFollowId} from {username}" 
                     ServerActObjRef <! FollowReqServer (username, toFollowId)
 
             | SendTweetUser(tweet) -> 
-                printfn "User %s  requested to send tweet." username
+                printfn $"User {username} requested to send tweet."
                 if isLoggedIn then
                     ServerActObjRef <! SendTweets(username, tweet+"- by User "+ username)
 
@@ -171,7 +171,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
                 ServerActObjRef <! SearchHashtag(username, searchKey)
 
             | ReceieveTweetUser(tweetList: list<tweetDetailsRecord>, tweetType: TweetTypeMessage) -> 
-                printfn "Recieved %i new tweets for user %s" tweetList.Length username
+                printfn $"Recieved {tweetList.Length} new tweets for {username}" 
                 match tweetType with 
                     | Live ->
                         if isLoggedIn then
@@ -184,7 +184,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
                         viewTweets(username, tweetList, Search)
 
             | UserRequestResponse (msg) ->
-                printfn "Got %s for user %s" msg username
+                printfn $"Got {msg} for {username}"
 
             | _ -> printfn  "Invalid operation"
         return! loop ()
@@ -220,16 +220,16 @@ for i in 0..numClients do
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
-for id in 0..numClients do
-    let followee = userMap.["User"+string id]
-    for j in 0..id do
-        let mutable probabilityNum = rand.Next(5)
-        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-        randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
-        probabilityNum <- rand.Next(100)
-        if (probabilityNum > 70) then
-            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
-        followee <! SendTweetUser randomTweet
+// for id in 0..numClients do
+//     let followee = userMap.["User"+string id]
+//     for j in 0..id do
+//         let mutable probabilityNum = rand.Next(5)
+//         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
+//         randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
+//         probabilityNum <- rand.Next(100)
+//         if (probabilityNum > 70) then
+//             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
+//         followee <! SendTweetUser randomTweet
 
 // // Sharing random ReTweets 
 // for id in 0..numClients do
