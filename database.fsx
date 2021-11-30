@@ -15,19 +15,19 @@ userDataTable.PrimaryKey <- [|userDataTable.Columns.["Username"]|]
 database.Tables.Add(userDataTable)
 
 let tweetDataTable = new DataTable("Tweets")
-tweetDataTable.Columns.Add("TweetID", typeof<string>);
+let TweetIDCol = tweetDataTable.Columns.Add("TweetID", typeof<string>);
 tweetDataTable.Columns.Add("Username", typeof<string>);
 tweetDataTable.Columns.Add("Tweet", typeof<string>);
-tweetDataTable.PrimaryKey <- [|tweetDataTable.Columns.["TweetID"]|]
+tweetDataTable.PrimaryKey <- [|TweetIDCol|]
 database.Tables.Add(tweetDataTable)
 
 let ReTweetDataTable = new DataTable("ReTweets")
-ReTweetDataTable.Columns.Add("ReTweetID", typeof<string>);
+let ReTweetIDCol = ReTweetDataTable.Columns.Add("ReTweetID", typeof<string>);
 ReTweetDataTable.Columns.Add("TweetID", typeof<string>);
 ReTweetDataTable.Columns.Add("Username", typeof<string>);
 ReTweetDataTable.Columns.Add("ReTweetUser", typeof<string>);
 ReTweetDataTable.Columns.Add("Tweet", typeof<string>);
-ReTweetDataTable.PrimaryKey <- [|ReTweetDataTable.Columns.["ReTweetID"]|]
+// ReTweetDataTable.PrimaryKey <- [|ReTweetIDCol|]
 database.Tables.Add(ReTweetDataTable)
 
 let HashTagDataTable = new DataTable("HashTag")
