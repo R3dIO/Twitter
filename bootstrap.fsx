@@ -1,5 +1,7 @@
 #r "nuget: Akka.FSharp" 
-#r "nuget: Akka.TestKit" 
+#r "nuget: Akka.TestKit"
+#r "nuget: Akka.Remote"
+#r "nuget: Akka.Serialization.Hyperion, 1.4.28"
 #r "nuget: FSharpPlus, 1.2.2"
 #r "nuget: Suave, 2.6.1"
 #r "System.Data.DataSetExtensions"
