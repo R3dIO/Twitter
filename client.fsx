@@ -106,9 +106,9 @@ let clientSystem = System.create "TwitterClient" ClientConfig
 let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: TweetTypeMessage) =
     match printType with
         | Live ->
-            for twt in tweets do printfn $"{username} received tweet {twt.Tweet} with tweet ID {twt.TweetID}"   
+            for twt in tweets do printfn $"{username} received tweet twt.Tweet with tweet ID {twt.TweetID}"   
         | Search ->
-            for twt in tweets do printfn $"{username} received tweet {twt.Tweet} from {twt.Username}"  
+            for twt in tweets do printfn $"{username} received tweet twt.Tweet from {twt.Username}"  
         | _ -> printfn "Unknown message type from print"
 
 let ClientActor userId system (mailbox:Actor<_>) =
@@ -156,13 +156,18 @@ let ClientActor userId system (mailbox:Actor<_>) =
                     ServerActObjRef <! FollowReqServer (username, toFollowId)
 
             | SendTweetUser(tweet) -> 
-                printfn $"User {username} requested to send tweet."
                 if isLoggedIn then
+                    printfn $"User {username} requested to send tweet."
                     ServerActObjRef <! SendTweets(username, tweet+"- by User "+ username)
 
             | ReTweetUser -> 
-                let tweetObj = myTweets.[rand.Next(myTweets.Length)]
-                ServerActObjRef <! ReTweets(username, tweetObj.TweetID)
+                if myTweets.Length > 0 then
+                    let randTweetID = rand.Next(myTweets.Length-1)
+                    printfn $"User {username} requested to retweet."
+                    let tweetObj = myTweets.[randTweetID]
+                    ServerActObjRef <! ReTweets(username, tweetObj.TweetID)
+                else
+                    printfn $"User {username} don't have any tweet to share."
             
             | SearchTweetsWithMention(searchKey) -> 
                 ServerActObjRef <! SearchHashtag(username, searchKey)
@@ -176,7 +181,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
                     | Live ->
                         if isLoggedIn then
                             myTweets <- tweetList @ myTweets 
-                            viewTweets(username, myTweets, Live)
+                            viewTweets(username, tweetList, Live)
                     | Pending -> 
                         myTweets <- tweetList @ myTweets
                         newTweetCount <- newTweetCount + tweetList.Length
@@ -207,6 +212,8 @@ let mutable onlineUserList = new List<string>()
 for KeyValue(key, actorValue) in userMap do
     actorValue <! SignUpUser
 
+System.Threading.Thread.Sleep(1000)
+
 // Logining in user
 for KeyValue(key, actorValue) in userMap do
     actorValue <! LogInUser
@@ -220,26 +227,30 @@ for i in 0..numClients do
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
-// for id in 0..numClients do
-//     let followee = userMap.["User"+string id]
-//     for j in 0..id do
-//         let mutable probabilityNum = rand.Next(5)
-//         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-//         randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
-//         probabilityNum <- rand.Next(100)
-//         if (probabilityNum > 70) then
-//             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
-//         followee <! SendTweetUser randomTweet
+for id in 0..numClients do
+    let followee = userMap.["User"+string id]
+    for j in 0..id do
+        let mutable probabilityNum = rand.Next(5)
+        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
+        randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
+        probabilityNum <- rand.Next(100)
+        if (probabilityNum > 70) then
+            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
+        followee <! SendTweetUser randomTweet
 
-// // Sharing random ReTweets 
-// for id in 0..numClients do
-//     let followee = userMap.["User"+string id]
-//     for j in 0..id do
-//         let probabilityNum = rand.Next(100)
-//         if (probabilityNum > 50) then
-//             followee <! ReTweetUser
 
-// // Searching for hashTags
+System.Threading.Thread.Sleep(3000)
+// Sharing random ReTweets 
+for id in 0..numClients do
+    let username = "User" + string id
+    if userMap.ContainsKey username then
+        let followee = userMap.[username]
+        for j in 0..id do
+            let probabilityNum = rand.Next(100)
+            if (probabilityNum >= 50) then
+                followee <! ReTweetUser
+
+// Searching for hashTags
 // for id in 0..numClients do
 //     let followee = userMap.["User"+string id]
 //     for j in 0..id do
