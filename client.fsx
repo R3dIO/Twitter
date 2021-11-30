@@ -103,13 +103,13 @@ let getRandomHashSubList(numOfTags) =
 
 let clientSystem = System.create "TwitterClient" ClientConfig
 
-let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: TweetTypeMessage) =
+let viewTweets (username:string, tweets: list<tweetDetailsRecord>, printType: TweetTypeMessage, tweetType: TweetTypeMessage) =
     match printType with
         | Live ->
-            for twt in tweets do printfn $"{username} received tweet twt.Tweet with tweet ID {twt.TweetID}"   
+            for twt in tweets do printfn $"{username} received tweet twt.Tweet with tweet ID {twt.TweetID} and type {tweetType}"   
         | Search ->
-            for twt in tweets do printfn $"{username} received tweet twt.Tweet from {twt.Username}"  
-        | _ -> printfn "Unknown message type from print"
+            for twt in tweets do printfn $"{username} received tweet twt.Tweet from {twt.Username} and type {tweetType}"  
+        | _ -> printfn "Unknown message type to print"
 
 let ClientActor userId system (mailbox:Actor<_>) =
     let username = userId
@@ -147,7 +147,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
                 let userObj = new UserLogIn(username, password)
                 ServerActObjRef <! LogInReqServer userObj
                 let newTweets = getFirstNTweets(newTweetCount, myTweets)
-                viewTweets(username, newTweets, Live)
+                viewTweets(username, newTweets, Live, Live)
                 newTweetCount <- 0
             
             | FollowUser(toFollowId) -> 
@@ -169,24 +169,27 @@ let ClientActor userId system (mailbox:Actor<_>) =
                 else
                     printfn $"User {username} don't have any tweet to share."
             
-            | SearchTweetsWithMention(searchKey) -> 
+            | SearchTweetsWithHashTag searchKey -> 
+                printfn $"User {username} requested to search hashtag {searchKey}."
                 ServerActObjRef <! SearchHashtag(username, searchKey)
 
-            | SearchTweetsWithHashTag(searchKey) -> 
-                ServerActObjRef <! SearchHashtag(username, searchKey)
+            | SearchTweetsWithMention -> 
+                printfn $"User {username} requested to search his mentions."
+                ServerActObjRef <! SearchHashtag(username, username)
 
-            | ReceieveTweetUser(tweetList: list<tweetDetailsRecord>, tweetType: TweetTypeMessage) -> 
+            | ReceieveTweetUser(tweetList: list<tweetDetailsRecord>, userStatusType: TweetTypeMessage, tweetType: TweetTypeMessage) -> 
                 printfn $"Recieved {tweetList.Length} new tweets for {username}" 
-                match tweetType with 
+                match userStatusType with 
                     | Live ->
                         if isLoggedIn then
                             myTweets <- tweetList @ myTweets 
-                            viewTweets(username, tweetList, Live)
+                            viewTweets(username, tweetList, Live, tweetType)
                     | Pending -> 
                         myTweets <- tweetList @ myTweets
                         newTweetCount <- newTweetCount + tweetList.Length
                     | Search ->
-                        viewTweets(username, tweetList, Search)
+                        viewTweets(username, tweetList, Search, Search)
+                    | _ -> printfn "Invalid message type for recieve"
 
             | UserRequestResponse (msg) ->
                 printfn $"Got {msg} for {username}"
@@ -230,10 +233,10 @@ for i in 0..numClients do
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
-        let mutable probabilityNum = rand.Next(5)
+        let mutable numHasTagToAppend = rand.Next(5)
         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-        randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) " ")
-        probabilityNum <- rand.Next(100)
+        randomTweet <- randomTweet + (getRandomHashSubList(numHasTagToAppend) |> List.fold (+) " ")
+        let probabilityNum = rand.Next(100)
         if (probabilityNum > 70) then
             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
         followee <! SendTweetUser randomTweet
@@ -244,29 +247,28 @@ System.Threading.Thread.Sleep(3000)
 for id in 0..numClients do
     let username = "User" + string id
     if userMap.ContainsKey username then
-        let followee = userMap.[username]
+        let userObj = userMap.[username]
         for j in 0..id do
             let probabilityNum = rand.Next(100)
             if (probabilityNum >= 50) then
-                followee <! ReTweetUser
+                userObj <! ReTweetUser
 
 // Searching for hashTags
-// for id in 0..numClients do
-//     let followee = userMap.["User"+string id]
-//     for j in 0..id do
-//         let probabilityNum = rand.Next(100)
-//         if (probabilityNum > 50) then
-//             let randomHashTag = randomHashTagList.[rand.Next(randomHashTagList.Length)]
-//             followee <! SearchTweetsWithMention (randomHashTag)
+for id in 0..numClients do
+    let userObj = userMap.["User"+string id]
+    for j in 0..id do
+        let probabilityNum = rand.Next(100)
+        if (probabilityNum >= 50) then
+            let randomHashTag = "#" + randomHashTagList.[rand.Next(randomHashTagList.Length)]
+            userObj <! SearchTweetsWithHashTag (randomHashTag)
 
-// // Searching for mentions
+// Searching for mentions
 // for id in 0..numClients do
 //     let followee = userMap.["User"+string id]
 //     for j in 0..id do
 //         let probabilityNum = rand.Next(100)
 //         if (probabilityNum > 50) then
-//             let randomMention = "@User" + string (rand.Next(userMap.Count-1))
-//             followee <! SearchTweetsWithHashTag randomMention
+//             followee <! SearchTweetsWithMention
 
 // Random logouts and login
     // while keepActive do

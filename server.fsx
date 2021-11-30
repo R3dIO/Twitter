@@ -211,7 +211,7 @@ let LogIn (userCreds: UserLogIn) =
             if (pendingTweets.ContainsKey(userCreds.Username)) then
                 let localTweetIdList = pendingTweets.[userCreds.Username]
                 let localTweetList = localTweetIdList |> List.map(fun tweetID -> GetTweetDetails(tweetID))
-                UserObj <! ReceieveTweetUser(localTweetList,Pending)
+                UserObj <! ReceieveTweetUser(localTweetList,Pending, Tweet)
                 pendingTweets <- pendingTweets.Add(userCreds.Username, [])
         else
             response <- response + " : " + "Incorrect password"
@@ -263,7 +263,7 @@ let SendTweets (username: string, tweet: string) =
     for users in followerList do
         if (OnlineUsers.ContainsKey(users)) then
             if printUpdate then printfn $"Send tweet {userTweet} to user {users}"
-            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live)
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live, Tweet)
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
@@ -288,7 +288,7 @@ let ReTweets (username: string, tweetID: string) =
         ReTweetDataTable.Rows.Add(tempRow)
 
         if (OnlineUsers.ContainsKey(users)) then
-            OnlineUsers.[users] <! ReceieveTweetUser([userTweet],Live)
+            OnlineUsers.[users] <! ReceieveTweetUser([userTweet],Live, ReTweet)
         else
             if (pendingTweets.ContainsKey(users)) then
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
@@ -341,13 +341,13 @@ let ServerActor(mailbox: Actor<_>) =
                     SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "HashTag")
                     if (OnlineUsers.ContainsKey(username)) then
-                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
+                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live, Search)
 
                 | SearchMention (username: string, searchString: string) ->
                     SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "Mention")
                     if (OnlineUsers.ContainsKey(username)) then
-                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live)
+                        OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live, Search)
 
                 | _ -> printfn "Invalid operation"
         with

@@ -55,6 +55,8 @@ type TweetTypeMessage =
     | Live 
     | Pending
     | Search
+    | Tweet
+    | ReTweet
 
 type ServerMessage = 
     | SignUpReqServer of UserDetails
@@ -75,7 +77,7 @@ type ClientMessage =
     | FollowUser of string
     | SearchHashtagUser of string
     | SearchMentionUser of string
-    | ReceieveTweetUser of list<tweetDetailsRecord> * TweetTypeMessage
-    | SearchTweetsWithMention of string
+    | ReceieveTweetUser of list<tweetDetailsRecord> * TweetTypeMessage * TweetTypeMessage
+    | SearchTweetsWithMention 
     | SearchTweetsWithHashTag of string
     | UserRequestResponse of string
