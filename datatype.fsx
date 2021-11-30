@@ -42,7 +42,7 @@ type userDetailsRecord = {
     Email: string;
     Password: string;
     Userobj: string;
-    Followers: list<string>;
+    Followers: string;
 }
 
 type tweetDetailsRecord = {
