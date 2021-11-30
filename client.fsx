@@ -43,14 +43,21 @@ let ClientConfig =
             }
         }")
 
-let numClients = fsi.CommandLineArgs.[1] |> int
+let mutable numClients = 0
+let mutable serverip = "localhost"
+let mutable serverport = "9090"
 
-if numClients <= 0 then
+if fsi.CommandLineArgs.Length > 1 then
+    numClients <- fsi.CommandLineArgs.[1] |> int
+    serverip <- fsi.CommandLineArgs.[2] |> string
+    serverport <- fsi.CommandLineArgs.[3] |> string
+
+if numClients <= 0 || serverip = "" || serverport = "" then
     printfn "Invalid input"
     Environment.Exit(0)
 
+let serverAddress = "akka.tcp://TwitterServer@" + serverip + ":" + serverport + "/user/TwitterServer"
 let rand = Random(DateTime.Now.Millisecond)
-
 let alphaNumeric = "abcdefghijklmnopqrstuvxyz1234567890"
 
 let getRandomString (strlen) = 
@@ -88,7 +95,7 @@ let randomHashTagList = [ "randomtweet"; "yolo2u"; "fishnut";
 let getRandomHashSubList(numOfTags) = 
     let mutable hashTagList = list.Empty
     for i in 0..numOfTags do
-        let hashTag = randomHashTagList.[rand.Next(randomHashTagList.Length)]
+        let hashTag = randomHashTagList.[rand.Next(randomHashTagList.Length-1)]
         hashTagList <- "#" + hashTag :: hashTagList
     hashTagList
     
@@ -118,24 +125,25 @@ let ClientActor userId system (mailbox:Actor<_>) =
             filterFrontList <- tweetList.[i] :: filterFrontList
         filterFrontList
 
-    let ServerActObjRef = select ("akka.tcp://ServerActor@localhost:9090/user/TwitterServer") system
+    let ServerActObjRef = select (serverAddress) system
 
     let rec loop () = actor {
         let! message = mailbox.Receive()
         match message with
             | SignUpUser ->
-                let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://ClientActor@localhost:8000/user/Client" + (string username))
+                printfn "User %s  requested to Sign up." username
+                let userDetails = new UserDetails(username, username + "@ufl.com", password, "akka.tcp://TwitterClient@localhost:8000/user/Client" + (string username))
                 ServerActObjRef <! SignUpReqServer userDetails
 
             | LogOutUser -> 
                 isLoggedIn <- false
-                printfn "User %s logged out from Twitter." username
+                printfn "User %s  requested to Log out." username
                 let userObj = new UserLogOut(username, mailbox.Self)
                 ServerActObjRef <! LogOutReqServer userObj
 
             | LogInUser -> 
                 isLoggedIn <- true
-                printfn "User %s logged in to Twitter successfully." username
+                printfn "User %s requested to Log in." username
                 let userObj = new UserLogIn(username, password)
                 ServerActObjRef <! LogInReqServer userObj
                 let newTweets = getFirstNTweets(newTweetCount, myTweets)
@@ -198,12 +206,10 @@ let mutable onlineUserList = new List<string>()
 
 // Signing up users
 for KeyValue(key, actorValue) in userMap do
-    printfn "Signing up user key %s" key
     actorValue <! SignUpUser
 
 // Logining in user
 for KeyValue(key, actorValue) in userMap do
-    printfn "Loging In user key %s" key
     actorValue <! LogInUser
     onlineUserList.Add(key)
 
@@ -211,7 +217,7 @@ for KeyValue(key, actorValue) in userMap do
 for i in 0..numClients do
     let followee = userMap.["User"+string i]
     for j in 0..i do
-        let followerId = string (rand.Next(numClients))
+        let followerId = string (rand.Next(numClients-1))
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
@@ -219,11 +225,11 @@ for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
         let mutable probabilityNum = rand.Next(5)
-        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length)]
+        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
         randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) "")
         probabilityNum <- rand.Next(100)
         if (probabilityNum > 70) then
-            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients)) + "@User" + string (rand.Next(numClients))
+            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
         followee <! SendTweetUser randomTweet
 
 // Sharing random ReTweets 
@@ -249,7 +255,7 @@ for id in 0..numClients do
     for j in 0..id do
         let probabilityNum = rand.Next(100)
         if (probabilityNum > 50) then
-            let randomMention = "@User" + string (rand.Next(userMap.Count))
+            let randomMention = "@User" + string (rand.Next(userMap.Count-1))
             followee <! SearchTweetsWithHashTag randomMention
 
 // Random logouts and login
@@ -258,3 +264,5 @@ for id in 0..numClients do
     //     if (probabilityNum > 50) then
     //         let randomUserLogout = userMap.[  ]
     //         randomUserLogout <! LogOutUser
+
+Console.ReadLine() |> ignore
