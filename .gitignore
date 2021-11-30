@@ -1,2 +1,4 @@
 *.txt
 extras.fsx
+.fake
+.ionide

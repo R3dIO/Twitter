@@ -98,7 +98,13 @@ let getRandomHashSubList(numOfTags) =
         let hashTag = randomHashTagList.[rand.Next(randomHashTagList.Length-1)]
         hashTagList <- "#" + hashTag :: hashTagList
     hashTagList
-    
+
+let getRandomMentionString(numOfTags) = 
+    let mutable mentionStr = ""
+    for i in 0..numOfTags do
+        mentionStr <- mentionStr + " @User" + string (rand.Next(numClients-1))
+    mentionStr
+
 //-------------------------------------- Client --------------------------------------//
 
 let clientSystem = System.create "TwitterClient" ClientConfig
@@ -175,7 +181,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
 
             | SearchTweetsWithMention -> 
                 printfn $"User {username} requested to search his mentions."
-                ServerActObjRef <! SearchHashtag(username, username)
+                ServerActObjRef <! SearchMention(username, username)
 
             | ReceieveTweetUser(tweetList: list<tweetDetailsRecord>, userStatusType: TweetTypeMessage, tweetType: TweetTypeMessage) -> 
                 printfn $"Recieved {tweetList.Length} new tweets for {username}" 
@@ -233,12 +239,12 @@ for i in 0..numClients do
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
-        let mutable numHasTagToAppend = rand.Next(5)
+        let mutable numTagsToAppend = rand.Next(5)
         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-        randomTweet <- randomTweet + (getRandomHashSubList(numHasTagToAppend) |> List.fold (+) " ")
+        randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "  ")
         let probabilityNum = rand.Next(100)
-        if (probabilityNum > 70) then
-            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
+        if (probabilityNum > 10) then
+            randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
         followee <! SendTweetUser randomTweet
 
 
@@ -263,18 +269,19 @@ for id in 0..numClients do
             userObj <! SearchTweetsWithHashTag (randomHashTag)
 
 // Searching for mentions
-// for id in 0..numClients do
-//     let followee = userMap.["User"+string id]
-//     for j in 0..id do
-//         let probabilityNum = rand.Next(100)
-//         if (probabilityNum > 50) then
-//             followee <! SearchTweetsWithMention
+for id in 0..numClients do
+    let followee = userMap.["User"+string id]
+    for j in 0..id do
+        let probabilityNum = rand.Next(100)
+        if (probabilityNum > 10) then
+            followee <! SearchTweetsWithMention
 
 // Random logouts and login
-    // while keepActive do
-    //     let probabilityNum = rand.Next(100)
-    //     if (probabilityNum > 50) then
-    //         let randomUserLogout = userMap.[  ]
-    //         randomUserLogout <! LogOutUser
+// let mutable numOperation = 0
+// while keepActive do
+//     let probabilityNum = rand.Next(100)
+//     if (probabilityNum > 15 && probabilityNum < 0) then 
+//         let randomUserLogout = userMap.[  ]
+//         randomUserLogout <! LogOutUser
 
 Console.ReadLine() |> ignore

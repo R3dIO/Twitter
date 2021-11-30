@@ -114,6 +114,7 @@ let GetFollowers(username: string) =
     followerList
 
 let SearchHashTagAndMentions (searchString: string, searchType: string) =
+        let mutable response = "Search"
         let mutable tweetList = list.Empty
         if (searchType = "HashTag") then
             if (useDataTable) then
@@ -132,7 +133,7 @@ let SearchHashTagAndMentions (searchString: string, searchType: string) =
         elif (searchType = "Mention") then
             if (useDataTable) then
                 let MentionExpression = $"Mention = '{searchString}'"
-                let MentionDetailRows = (HashTagDataTable.Select(MentionExpression))
+                let MentionDetailRows = (MentionDataTable.Select(MentionExpression))
                 if (MentionDetailRows.Length > 0) then
                     for tweetID in MentionDetailRows do
                         let tweetObj = GetTweetDetails(tweetID.Field("TweetID"))
@@ -167,7 +168,7 @@ let UpdateHashTagAndMentions (tweet: string, tweetID: string) =
         if (userDetails.Username <> "") then
             if useDataTable then
                 let insertTempRow = MentionDataTable.NewRow()
-                insertTempRow.["Mention"] <- mention.Value
+                insertTempRow.["Mention"] <- username
                 insertTempRow.["TweetID"] <- tweetID
                 MentionDataTable.Rows.Add(insertTempRow)
             else
@@ -273,6 +274,7 @@ let SendTweets (username: string, tweet: string) =
     response
 
 let ReTweets (username: string, tweetID: string) =
+    let mutable response = "ReTweet"
     let userTweet = GetTweetDetails(tweetID)
     let followerList = GetFollowers(username)
     ReTweetCount <- ReTweetCount + 1
@@ -294,6 +296,8 @@ let ReTweets (username: string, tweetID: string) =
                 pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
             else    
                 pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
+    response <- response + " : " + "Successfully Retweeted tweet with TweetID" + userTweet.TweetID
+    response
 
 let ServerActor(mailbox: Actor<_>) =
     let rec loop()= actor{
@@ -335,19 +339,27 @@ let ServerActor(mailbox: Actor<_>) =
 
                 | ReTweets (username: string, tweetID: string) ->
                     if printUpdate then printfn $"{username} retweeted {tweetID}"
-                    ReTweets (username, tweetID)
+                    let response = ReTweets (username, tweetID)
+                    let actorObj = select (GetUserDetails(username).Userobj) serverSystem
+                    actorObj <! UserRequestResponse response
 
                 | SearchHashtag (username: string, searchString: string) ->
                     SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "HashTag")
                     if (OnlineUsers.ContainsKey(username)) then
                         OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live, Search)
+                        let response = $"{username} Search Found hashtag {searchString} in {userTweetList.Length} tweets "
+                        let actorObj = select (GetUserDetails(username).Userobj) serverSystem
+                        actorObj <! UserRequestResponse response
 
                 | SearchMention (username: string, searchString: string) ->
                     SearchCount <- SearchCount + 1
                     let userTweetList = SearchHashTagAndMentions (searchString, "Mention")
                     if (OnlineUsers.ContainsKey(username)) then
+                        let response = $"{username} Search Found UID {searchString} in {userTweetList.Length} tweets "
                         OnlineUsers.[username] <! ReceieveTweetUser(userTweetList, Live, Search)
+                        let actorObj = select (GetUserDetails(username).Userobj) serverSystem
+                        actorObj <! UserRequestResponse response
 
                 | _ -> printfn "Invalid operation"
         with
