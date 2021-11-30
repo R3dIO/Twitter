@@ -8,11 +8,11 @@ open Akka.Actor
 open Akka.Configuration
 open Akka.FSharp
 open System.Collections.Generic
-open Database
 open Datatype
 open Akka.Configuration
 open Akka.Serialization
 
+let mutable keepActive = true
 let ClientConfig = 
     ConfigurationFactory.ParseString(
         @"akka {
@@ -193,23 +193,27 @@ for id in 0..numClients do
 
 //-------------------------------------- Simulator --------------------------------------//
 
-let mutable onlineUser = Set.empty
+let mutable onlineUserList = new List<string>()
 
+// Signing up users
 for KeyValue(key, actorValue) in userMap do
     printfn "Signing up user key %s" key
     actorValue <! SignUpUser
 
+// Logining in user
 for KeyValue(key, actorValue) in userMap do
     printfn "Loging In user key %s" key
     actorValue <! LogInUser
-    onlineUser <- onlineUser.Add(key)
+    onlineUserList.Add(key)
 
+// Adding Random followers with zipf
 for i in 0..numClients do
     let followee = userMap.["User"+string i]
     for j in 0..i do
         let followerId = string (rand.Next(numClients))
         followee <! FollowUser("User" + followerId)
 
+// Sharing random Tweets among users
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
@@ -221,6 +225,7 @@ for id in 0..numClients do
             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients)) + "@User" + string (rand.Next(numClients))
         followee <! SendTweetUser randomTweet
 
+// Sharing random ReTweets 
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
@@ -228,6 +233,7 @@ for id in 0..numClients do
         if (probabilityNum > 50) then
             followee <! ReTweetUser
 
+// Searching for hashTags
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
@@ -236,6 +242,7 @@ for id in 0..numClients do
             let randomHashTag = randomHashTagList.[rand.Next(randomHashTagList.Length)]
             followee <! SearchTweetsWithMention (randomHashTag)
 
+// Searching for mentions
 for id in 0..numClients do
     let followee = userMap.["User"+string id]
     for j in 0..id do
@@ -243,3 +250,10 @@ for id in 0..numClients do
         if (probabilityNum > 50) then
             let randomMention = "@User" + string (rand.Next(userMap.Count))
             followee <! SearchTweetsWithHashTag randomMention
+
+// Random logouts and login
+    // while keepActive do
+    //     let probabilityNum = rand.Next(100)
+    //     if (probabilityNum > 50) then
+    //         let randomUserLogout = userMap.[  ]
+    //         randomUserLogout <! LogOutUser
