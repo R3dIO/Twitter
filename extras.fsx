@@ -8,3 +8,9 @@
 
 // let updateTempRow = MentionDataTable.Select("Mention='" + mention + "'")
 // updateTempRow.["TweetID"] <- updateTempRow.["TweetID"] + ";" + tweetID
+
+System.Threading.Thread.Sleep(1000)
+
+// TweetIDCol.AutoIncrement = true;
+// TweetIDCol.AutoIncrementSeed = 1L;
+// TweetIDCol.AutoIncrementStep = 1L;
