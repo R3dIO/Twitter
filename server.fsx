@@ -220,10 +220,10 @@ let Follow (followee: string, follower: string) =
     let userdataFollower = GetUserDetails(follower)
     if (userdata.Username <> "" && userdataFollower.Username <> "") then
         if useDataTable then
-            let row:DataRow = userDataTable.NewRow()
-            row.["Username"] <- userdata.Username
-            row.["Followers"] <- userdata.Followers + ";" + userdataFollower.Username
-            userDataTable.Rows.Add row
+            let row = userDataTable.Select("Username='" + followee + "'")
+            row.[0].["Username"] <- userdata.Username
+            row.[0].["Followers"] <- userdata.Followers + ";" + userdataFollower.Username
+            response <- response + ":" + $"User {userdataFollower.Username} is now following {userdata.Username}" 
         else
             let followerLocalList = followersMap.TryFind(followee)
             match followerLocalList with

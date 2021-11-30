@@ -221,42 +221,42 @@ for i in 0..numClients do
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
-for id in 0..numClients do
-    let followee = userMap.["User"+string id]
-    for j in 0..id do
-        let mutable probabilityNum = rand.Next(5)
-        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-        randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) "")
-        probabilityNum <- rand.Next(100)
-        if (probabilityNum > 70) then
-            randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
-        followee <! SendTweetUser randomTweet
+// for id in 0..numClients do
+//     let followee = userMap.["User"+string id]
+//     for j in 0..id do
+//         let mutable probabilityNum = rand.Next(5)
+//         let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
+//         randomTweet <- randomTweet + (getRandomHashSubList(probabilityNum) |> List.fold (+) "")
+//         probabilityNum <- rand.Next(100)
+//         if (probabilityNum > 70) then
+//             randomTweet <- randomTweet + "@User" + string (rand.Next(numClients-1)) + "@User" + string (rand.Next(numClients-1))
+//         followee <! SendTweetUser randomTweet
 
-// Sharing random ReTweets 
-for id in 0..numClients do
-    let followee = userMap.["User"+string id]
-    for j in 0..id do
-        let probabilityNum = rand.Next(100)
-        if (probabilityNum > 50) then
-            followee <! ReTweetUser
+// // Sharing random ReTweets 
+// for id in 0..numClients do
+//     let followee = userMap.["User"+string id]
+//     for j in 0..id do
+//         let probabilityNum = rand.Next(100)
+//         if (probabilityNum > 50) then
+//             followee <! ReTweetUser
 
-// Searching for hashTags
-for id in 0..numClients do
-    let followee = userMap.["User"+string id]
-    for j in 0..id do
-        let probabilityNum = rand.Next(100)
-        if (probabilityNum > 50) then
-            let randomHashTag = randomHashTagList.[rand.Next(randomHashTagList.Length)]
-            followee <! SearchTweetsWithMention (randomHashTag)
+// // Searching for hashTags
+// for id in 0..numClients do
+//     let followee = userMap.["User"+string id]
+//     for j in 0..id do
+//         let probabilityNum = rand.Next(100)
+//         if (probabilityNum > 50) then
+//             let randomHashTag = randomHashTagList.[rand.Next(randomHashTagList.Length)]
+//             followee <! SearchTweetsWithMention (randomHashTag)
 
-// Searching for mentions
-for id in 0..numClients do
-    let followee = userMap.["User"+string id]
-    for j in 0..id do
-        let probabilityNum = rand.Next(100)
-        if (probabilityNum > 50) then
-            let randomMention = "@User" + string (rand.Next(userMap.Count-1))
-            followee <! SearchTweetsWithHashTag randomMention
+// // Searching for mentions
+// for id in 0..numClients do
+//     let followee = userMap.["User"+string id]
+//     for j in 0..id do
+//         let probabilityNum = rand.Next(100)
+//         if (probabilityNum > 50) then
+//             let randomMention = "@User" + string (rand.Next(userMap.Count-1))
+//             followee <! SearchTweetsWithHashTag randomMention
 
 // Random logouts and login
     // while keepActive do
