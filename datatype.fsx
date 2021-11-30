@@ -1,11 +1,7 @@
-#load "bootstrap.fsx"
+// #load "bootstrap.fsx"
 #r "nuget: Akka.FSharp" 
-#r "nuget: Akka.TestKit" 
 
-open System
-open System.Collections.Generic
 open Akka.Actor
-open Akka.FSharp
 
 type UserDetails =
     struct

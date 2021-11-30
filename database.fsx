@@ -1,13 +1,5 @@
-#load "bootstrap.fsx"
-#r "nuget: Akka.FSharp" 
-#r "nuget: Akka.TestKit" 
-
-open System
-open System.Collections.Generic
+// #load "bootstrap.fsx"
 open System.Data
-open System.IO
-open Akka.Actor
-open Akka.FSharp
 
 let database:DataSet = new DataSet()
 
@@ -51,6 +43,6 @@ let MentionID = MentionDataTable.Columns.Add("MentionID", typeof<int32>);
 MentionID.AutoIncrement = true;
 MentionDataTable.Columns.Add("Mention", typeof<string>);
 MentionDataTable.Columns.Add("TweetID", typeof<string>);
-ReTweetDataTable.PrimaryKey <- [|MentionDataTable.Columns.["MentionID"]|]
+MentionDataTable.PrimaryKey <- [|MentionDataTable.Columns.["MentionID"]|]
 database.Tables.Add(MentionDataTable)
 
