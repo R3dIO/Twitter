@@ -282,9 +282,17 @@ for id in 0..numClients do
 // Random simulator for all operations
 let mutable numOperation = 0
 while keepActive do
-    if numOperation = maxRandomRequest then keepActive <- false
-    numOperation <- numOperation + 1
+    printfn "num operation value %i" numOperation
     let probabilityNum = rand.Next(100)
+    numOperation <- numOperation + 1
+
+    if numOperation = maxRandomRequest then 
+        printfn "Exiting client"
+        keepActive <- false
+        let ServerActObjRef = select (serverAddress) clientSystem
+        ServerActObjRef <! (PoisonPill.Instance)
+        Environment.Exit(0)
+
     if (probabilityNum < 25 && probabilityNum > 0) then 
         let randUserId = rand.Next(onlineUserList.Count)
         let randomUserLogout = userMap.[onlineUserList.[randUserId]]
@@ -313,6 +321,5 @@ while keepActive do
         let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
         let followerId = string (rand.Next(numClients-1))
         userObj <! FollowUser("User" + followerId)
-    
 
 Console.ReadLine() |> ignore
