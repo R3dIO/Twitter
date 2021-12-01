@@ -4,16 +4,17 @@
 
 open System
 open System.Collections.Generic
+open System.Text
 open System.Text.RegularExpressions
 open System.Data
+open System.IO
+open System.Security.Cryptography
 open Akka.Actor
 open Akka.FSharp
 open Akka.Configuration
 open Akka.Serialization
 open Database
 open Datatype
-open System.IO
-open System.Security.Cryptography
 
 let useDataTable = true;
 let printUpdate = false;
@@ -23,6 +24,8 @@ let mutable ReTweetCount = 0;
 let mutable SearchCount = 0;
 let mutable RequestCount = 0;
 let mutable FollowerCount = 0;
+let mutable LogOutCount = 0;
+let mutable LogInCount = 0;
 let mutable OnlineUsers :Map<string,ActorSelection> = Map.empty
 let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
@@ -66,10 +69,12 @@ let rand = Random(DateTime.Now.Millisecond)
 
 //-------------------------------------- Server --------------------------------------//
 
-let getHashNumFromSha1(s: string) = 
-    System.Text.Encoding.ASCII.GetBytes(s) 
-    |> System.Security.Cryptography.SHA256.Create().ComputeHash
-    |> System.Text.Encoding.Unicode.GetString
+let getHashNumFromSha1(str: string) = 
+    str + string(rand.Next(100000))
+    |> Encoding.ASCII.GetBytes
+    |> (new SHA256Managed()).ComputeHash
+    |> System.BitConverter.ToString
+    |> printfn "%s"
 
 let GetUserDetails(username: string) =
     let userExpression = $"Username = '{username}'"
@@ -251,27 +256,31 @@ let Follow (followee: string, follower: string) =
 
 let SendTweets (username: string, tweet: string) =
     let mutable response = "SendTweet"
-    TweetCount <- TweetCount + 1
-    let tempRow = tweetDataTable.NewRow()
     let tweetHash = string (getHashNumFromSha1(username + tweet + DateTime.Now.ToLongTimeString() + string (rand.Next(UserCount)) ))
-    tempRow.SetField("TweetID", tweetHash)
-    tempRow.SetField("Username", username)
-    tempRow.SetField("Tweet", tweet)
-    tweetDataTable.Rows.Add(tempRow)
+    let getTweetDetails = GetTweetDetails(tweetHash)
+    if getTweetDetails.TweetID = "" && tweetHash <> "" then
+        let tempRow = tweetDataTable.NewRow()
+        TweetCount <- TweetCount + 1
+        tempRow.SetField("TweetID", tweetHash)
+        tempRow.SetField("Username", username)
+        tempRow.SetField("Tweet", tweet)
+        tweetDataTable.Rows.Add(tempRow)
 
-    let userTweet = { TweetID=tweetHash; Username=username; Tweet=tweet}
-    UpdateHashTagAndMentions(tweet, userTweet.TweetID)
-    let followerList = GetFollowers(username)
-    for users in followerList do
-        if (OnlineUsers.ContainsKey(users)) then
-            if printUpdate then printfn $"Send tweet {userTweet} to user {users}"
-            OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live, Tweet)
-        else
-            if (pendingTweets.ContainsKey(users)) then
-                pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
-            else    
-                pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
-    response <- response + " : " + "Successfully shared tweet with TweetID" + userTweet.TweetID
+        let userTweet = { TweetID=tweetHash; Username=username; Tweet=tweet}
+        UpdateHashTagAndMentions(tweet, userTweet.TweetID)
+        let followerList = GetFollowers(username)
+        for users in followerList do
+            if (OnlineUsers.ContainsKey(users)) then
+                if printUpdate then printfn $"Send tweet {userTweet} to user {users}"
+                OnlineUsers.[users] <! ReceieveTweetUser([userTweet], Live, Tweet)
+            else
+                if (pendingTweets.ContainsKey(users)) then
+                    pendingTweets <- pendingTweets.Add(users, [users] @ [userTweet.TweetID])
+                else    
+                    pendingTweets <- pendingTweets.Add(users, [userTweet.TweetID])
+        response <- response + " : " + "Successfully shared tweet with TweetID" + userTweet.TweetID
+    else
+        response <- response + " : " + "User already shared tweet"
     response
 
 let ReTweets (username: string, tweetID: string) =
@@ -314,12 +323,14 @@ let ServerActor(mailbox: Actor<_>) =
                     actorObj <! UserRequestResponse response
 
                 | LogInReqServer (userCreds: UserLogIn) ->
+                    LogInCount <- LogInCount + 1
                     if printUpdate then printfn $"User {userCreds.Username} reqested to login"
                     let response = LogIn userCreds
                     let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
                     actorObj <! UserRequestResponse response
 
                 | LogOutReqServer (userCreds: UserLogOut) ->
+                    LogOutCount <- LogOutCount + 1
                     if printUpdate then printfn $"User {userCreds.Username} reqested to logout"
                     let response = LogOut userCreds
                     let actorObj = select (GetUserDetails(userCreds.Username).Userobj) serverSystem
@@ -373,5 +384,12 @@ let ServerActor(mailbox: Actor<_>) =
 let server = spawn serverSystem "TwitterServer" (ServerActor)
 printfn "server: %A" server.Path
 Console.ReadLine() |> ignore
-printfn $"NumUsers = {UserCount}, Total Tweets = {TweetCount}, Searches = {SearchCount}, Request Count={RequestCount}, Retweets = {ReTweetCount} Follower Count = {FollowerCount}"
+printfn $"NumUsers = {UserCount}, 
+        Total Tweets = {TweetCount}, 
+        Searches = {SearchCount}, 
+        Request Count={RequestCount}, 
+        Retweets = {ReTweetCount} 
+        Follower Count = {FollowerCount} 
+        LogOut Count = {LogOutCount}
+        LogIn Count = {LogInCount}"
 //-------------------------------------- Server --------------------------------------//
