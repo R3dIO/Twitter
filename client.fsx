@@ -241,14 +241,16 @@ for KeyValue(key, actorValue) in userMap do
 // Adding Random followers with zipf
 for i in 0..numClients do
     let followee = userMap.["User"+string i]
-    for j in 0..i do
+    let rank =  (maxRandomRequest/(i+1)) |> int
+    for j in 0..rank do
         let followerId = string (rand.Next(numClients-1))
         followee <! FollowUser("User" + followerId)
 
 // Sharing random Tweets among users
 for id in 0..numClients do
     let userObj = userMap.["User"+string id]
-    for j in 0..id do
+    let rank =  (maxRandomRequest/(id+1)) |> int
+    for j in 0..rank do
         userObj <! SendTweetUser(getRandomTweet())
 
 System.Threading.Thread.Sleep(3000)

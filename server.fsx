@@ -22,6 +22,7 @@ let mutable TweetCount = 0;
 let mutable ReTweetCount = 0;
 let mutable SearchCount = 0;
 let mutable RequestCount = 0;
+let mutable FollowerCount = 0;
 let mutable OnlineUsers :Map<string,ActorSelection> = Map.empty
 let mutable followersMap: Map<string, Set<string>> = Map.empty 
 let mutable pendingTweets: Map<string, list<string>> = Map.empty 
@@ -325,6 +326,7 @@ let ServerActor(mailbox: Actor<_>) =
                     actorObj <! UserRequestResponse response
 
                 | FollowReqServer (followeID: string, followerID: string) ->
+                    FollowerCount <- FollowerCount + 1
                     if printUpdate then printfn $"User {followeID} reqested to follow {followerID}"
                     let response = Follow (followeID, followerID)
                     let actorObj = select (GetUserDetails(followeID).Userobj) serverSystem
@@ -371,5 +373,5 @@ let ServerActor(mailbox: Actor<_>) =
 let server = spawn serverSystem "TwitterServer" (ServerActor)
 printfn "server: %A" server.Path
 Console.ReadLine() |> ignore
-printfn $"NumUsers = {UserCount}, Total Tweets = {TweetCount}, Searches = {SearchCount}, Request Count={RequestCount}, Retweets = {ReTweetCount}"
+printfn $"NumUsers = {UserCount}, Total Tweets = {TweetCount}, Searches = {SearchCount}, Request Count={RequestCount}, Retweets = {ReTweetCount} Follower Count = {FollowerCount}"
 //-------------------------------------- Server --------------------------------------//
