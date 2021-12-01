@@ -108,13 +108,13 @@ let getRandomMentionString(numOfTags) =
     mentionStr
 
 let getRandomTweet(numOfTags) = 
-    let mutable numTagsToAppend = rand.Next(5)
+    let mutable numTagsToAppend = rand.Next(1,5)
     let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "  ")
+    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "")
     let probabilityNum = rand.Next(100)
     if (probabilityNum > 10) then
         randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
-    randomTweet
+    randomTweet + string(rand.Next(100000))
 //-------------------------------------- Client --------------------------------------//
 
 let clientSystem = System.create "TwitterClient" ClientConfig
@@ -174,7 +174,7 @@ let ClientActor userId system (mailbox:Actor<_>) =
             | SendTweetUser(tweet) -> 
                 if isLoggedIn then
                     printfn $"User {username} requested to send tweet."
-                    ServerActObjRef <! SendTweets(username, tweet+"- by User "+ username)
+                    ServerActObjRef <! SendTweets(username, tweet + "- by" + username)
 
             | ReTweetUser -> 
                 if myTweets.Length > 0 then
@@ -284,7 +284,6 @@ for id in 0..numClients do
 // Random simulator for all operations
 let mutable numOperation = 0
 while keepActive do
-    printfn "num operation value %i" numOperation
     let probabilityNum = rand.Next(100)
     numOperation <- numOperation + 1
 
@@ -302,7 +301,7 @@ while keepActive do
         onlineUserList.RemoveAt(randUserId) |> ignore
     else if (probabilityNum < 50 && probabilityNum > 25) then 
         let mutable randUserId = onlineUserList.[rand.Next(onlineUserList.Count)]
-        while onlineUserList.Contains(randUserId) do randUserId <- onlineUserList.[rand.Next(onlineUserList.Count)]  
+        if onlineUserList.Contains(randUserId) then randUserId <- onlineUserList.[rand.Next(onlineUserList.Count-1)]  
         let randomUserLogout = userMap.[randUserId]
         randomUserLogout <! LogInUser
         onlineUserList.Add(randUserId)
