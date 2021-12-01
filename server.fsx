@@ -74,7 +74,6 @@ let getHashNumFromSha1(str: string) =
     |> Encoding.ASCII.GetBytes
     |> (new SHA256Managed()).ComputeHash
     |> System.BitConverter.ToString
-    |> printfn "%s"
 
 let GetUserDetails(username: string) =
     let userExpression = $"Username = '{username}'"

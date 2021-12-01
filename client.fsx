@@ -110,11 +110,11 @@ let getRandomMentionString(numOfTags) =
 let getRandomTweet(numOfTags) = 
     let mutable numTagsToAppend = rand.Next(1,5)
     let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "")
+    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> Core.String.concat " " )
     let probabilityNum = rand.Next(100)
     if (probabilityNum > 10) then
         randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
-    randomTweet + string(rand.Next(100000))
+    randomTweet + " " + string(rand.Next(100000))
 //-------------------------------------- Client --------------------------------------//
 
 let clientSystem = System.create "TwitterClient" ClientConfig
