@@ -46,11 +46,13 @@ let ClientConfig =
 let mutable numClients = 0
 let mutable serverip = "localhost"
 let mutable serverport = "9090"
+let mutable maxRandomRequest =  100
 
 if fsi.CommandLineArgs.Length > 1 then
     numClients <- fsi.CommandLineArgs.[1] |> int
-    serverip <- fsi.CommandLineArgs.[2] |> string
-    serverport <- fsi.CommandLineArgs.[3] |> string
+    maxRandomRequest <- fsi.CommandLineArgs.[2] |> int
+    serverip <- fsi.CommandLineArgs.[3] |> string
+    serverport <- fsi.CommandLineArgs.[4] |> string
 
 if numClients <= 0 || serverip = "" || serverport = "" then
     printfn "Invalid input"
@@ -105,6 +107,14 @@ let getRandomMentionString(numOfTags) =
         mentionStr <- mentionStr + " @User" + string (rand.Next(numClients-1))
     mentionStr
 
+let getRandomTweet(numOfTags) = 
+    let mutable numTagsToAppend = rand.Next(5)
+    let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
+    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "  ")
+    let probabilityNum = rand.Next(100)
+    if (probabilityNum > 10) then
+        randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
+    randomTweet
 //-------------------------------------- Client --------------------------------------//
 
 let clientSystem = System.create "TwitterClient" ClientConfig
@@ -237,16 +247,9 @@ for i in 0..numClients do
 
 // Sharing random Tweets among users
 for id in 0..numClients do
-    let followee = userMap.["User"+string id]
+    let userObj = userMap.["User"+string id]
     for j in 0..id do
-        let mutable numTagsToAppend = rand.Next(5)
-        let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-        randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "  ")
-        let probabilityNum = rand.Next(100)
-        if (probabilityNum > 10) then
-            randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
-        followee <! SendTweetUser randomTweet
-
+        userObj <! SendTweetUser(getRandomTweet())
 
 System.Threading.Thread.Sleep(3000)
 // Sharing random ReTweets 
@@ -266,22 +269,50 @@ for id in 0..numClients do
         let probabilityNum = rand.Next(100)
         if (probabilityNum >= 50) then
             let randomHashTag = "#" + randomHashTagList.[rand.Next(randomHashTagList.Length)]
-            userObj <! SearchTweetsWithHashTag (randomHashTag)
+            userObj <! SearchTweetsWithHashTag randomHashTag
 
 // Searching for mentions
 for id in 0..numClients do
-    let followee = userMap.["User"+string id]
+    let userObj = userMap.["User"+string id]
     for j in 0..id do
         let probabilityNum = rand.Next(100)
         if (probabilityNum > 10) then
-            followee <! SearchTweetsWithMention
+            userObj <! SearchTweetsWithMention
 
-// Random logouts and login
-// let mutable numOperation = 0
-// while keepActive do
-//     let probabilityNum = rand.Next(100)
-//     if (probabilityNum > 15 && probabilityNum < 0) then 
-//         let randomUserLogout = userMap.[  ]
-//         randomUserLogout <! LogOutUser
+// Random simulator for all operations
+let mutable numOperation = 0
+while keepActive do
+    if numOperation = maxRandomRequest then keepActive <- false
+    numOperation <- numOperation + 1
+    let probabilityNum = rand.Next(100)
+    if (probabilityNum < 25 && probabilityNum > 0) then 
+        let randUserId = rand.Next(onlineUserList.Count)
+        let randomUserLogout = userMap.[onlineUserList.[randUserId]]
+        randomUserLogout <! LogOutUser
+        onlineUserList.RemoveAt(randUserId) |> ignore
+    else if (probabilityNum < 50 && probabilityNum > 25) then 
+        let mutable randUserId = onlineUserList.[rand.Next(onlineUserList.Count)]
+        while onlineUserList.Contains(randUserId) do randUserId <- onlineUserList.[rand.Next(onlineUserList.Count)]  
+        let randomUserLogout = userMap.[randUserId]
+        randomUserLogout <! LogInUser
+        onlineUserList.Add(randUserId)
+    else if (probabilityNum < 60 && probabilityNum > 50 ) then 
+        let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
+        userObj <! SendTweetUser(getRandomTweet())
+    else if (probabilityNum < 70 && probabilityNum > 60 ) then 
+        let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
+        userObj <! ReTweetUser
+    else if (probabilityNum < 80 && probabilityNum > 70 ) then 
+        let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
+        let randomHashTag = "#" + randomHashTagList.[rand.Next(randomHashTagList.Length)]
+        userObj <! SearchTweetsWithHashTag randomHashTag
+    else if (probabilityNum < 90 && probabilityNum > 80 ) then 
+        let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
+        userObj <! SearchTweetsWithMention
+    else if (probabilityNum < 100 && probabilityNum > 90 ) then 
+        let userObj = userMap.[onlineUserList.[rand.Next(onlineUserList.Count)]]
+        let followerId = string (rand.Next(numClients-1))
+        userObj <! FollowUser("User" + followerId)
+    
 
 Console.ReadLine() |> ignore
