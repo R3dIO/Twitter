@@ -253,7 +253,7 @@ for id in 0..numClients do
     for j in 0..rank do
         userObj <! SendTweetUser(getRandomTweet())
 
-System.Threading.Thread.Sleep(3000)
+System.Threading.Thread.Sleep(2000)
 // Sharing random ReTweets 
 for id in 0..numClients do
     let username = "User" + string id
@@ -291,8 +291,10 @@ while keepActive do
         printfn "Exiting client"
         keepActive <- false
         let ServerActObjRef = select (serverAddress) clientSystem
+        printfn "Done with making random requests"
+        System.Threading.Thread.Sleep(3000)
         ServerActObjRef <! (PoisonPill.Instance)
-        Environment.Exit(0)
+        // Environment.Exit(0)
 
     if (probabilityNum < 25 && probabilityNum > 0) then 
         let randUserId = rand.Next(onlineUserList.Count)
