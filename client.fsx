@@ -3,14 +3,11 @@
 #load "datatype.fsx"
 
 open System
-open System.Threading
 open Akka.Actor
 open Akka.Configuration
 open Akka.FSharp
 open System.Collections.Generic
 open Datatype
-open Akka.Configuration
-open Akka.Serialization
 
 let mutable keepActive = true
 let ClientConfig = 
@@ -36,14 +33,9 @@ let ClientConfig =
                 }       
             }
             remote {
-                maximum-payload-bytes = 30000000 bytes
                 helios.tcp {
                     port = 8000
                     hostname = localhost
-                    message-frame-size =  30000000b
-                    send-buffer-size =  30000000b
-                    receive-buffer-size =  30000000b
-                    maximum-frame-size = 30000000b
                 }
             }
         }")
@@ -115,12 +107,11 @@ let getRandomMentionString(numOfTags) =
 let getRandomTweet(numOfTags) = 
     let mutable numTagsToAppend = rand.Next(1,5)
     let mutable randomTweet = randomTweetList.[rand.Next(randomTweetList.Length-1)]
-    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> Core.String.concat " " )
+    randomTweet <- randomTweet + (getRandomHashSubList(numTagsToAppend) |> List.fold (+) "")
     let probabilityNum = rand.Next(100)
     if (probabilityNum > 10) then
         randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
-    randomTweet + " " + string(rand.Next(100000))
-//-------------------------------------- Client --------------------------------------//
+    randomTweet + string(rand.Next(100000))
 
 let clientSystem = System.create "TwitterClient" ClientConfig
 
@@ -225,11 +216,6 @@ for id in 0..numClients do
     let username = ("User" + string id)
     userMap <- userMap.Add(username, (spawn clientSystem (username) (ClientActor username clientSystem)))
 
-//-------------------------------------- Client --------------------------------------//
-
-
-//-------------------------------------- Simulator --------------------------------------//
-
 let mutable onlineUserList = new List<string>()
 
 // Signing up users
@@ -251,7 +237,6 @@ for i in 0..numClients do
         let followerId = string (rand.Next(numClients-1))
         followee <! FollowUser("User" + followerId)
 
-System.Threading.Thread.Sleep(2000)
 // Sharing random Tweets among users
 for id in 0..numClients do
     let userObj = userMap.["User"+string id]
@@ -259,7 +244,7 @@ for id in 0..numClients do
     for j in 0..rank do
         userObj <! SendTweetUser(getRandomTweet())
 
-System.Threading.Thread.Sleep(2000)
+System.Threading.Thread.Sleep(3000)
 // Sharing random ReTweets 
 for id in 0..numClients do
     let username = "User" + string id
@@ -270,8 +255,6 @@ for id in 0..numClients do
             if (probabilityNum >= 50) then
                 userObj <! ReTweetUser
 
-
-System.Threading.Thread.Sleep(2000)
 // Searching for hashTags
 for id in 0..numClients do
     let userObj = userMap.["User"+string id]
@@ -289,7 +272,6 @@ for id in 0..numClients do
         if (probabilityNum > 10) then
             userObj <! SearchTweetsWithMention
 
-System.Threading.Thread.Sleep(2000)
 // Random simulator for all operations
 let mutable numOperation = 0
 while keepActive do
@@ -300,10 +282,8 @@ while keepActive do
         printfn "Exiting client"
         keepActive <- false
         let ServerActObjRef = select (serverAddress) clientSystem
-        printfn "Done with making random requests"
-        System.Threading.Thread.Sleep(3000)
         ServerActObjRef <! (PoisonPill.Instance)
-        // Environment.Exit(0)
+        Environment.Exit(0)
 
     if (probabilityNum < 25 && probabilityNum > 0) then 
         let randUserId = rand.Next(onlineUserList.Count)
