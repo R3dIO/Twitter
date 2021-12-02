@@ -1,3 +1,4 @@
+#time "on"
 #load "bootstrap.fsx"
 #load "database.fsx"
 #load "datatype.fsx"
@@ -120,7 +121,6 @@ let getRandomTweet(numOfTags) =
     if (probabilityNum > 10) then
         randomTweet <- randomTweet + getRandomMentionString(numTagsToAppend)
     randomTweet + " " + string(rand.Next(100000))
-//-------------------------------------- Client --------------------------------------//
 
 let clientSystem = System.create "TwitterClient" ClientConfig
 
@@ -224,11 +224,6 @@ let mutable userMap = Map.empty
 for id in 0..numClients do
     let username = ("User" + string id)
     userMap <- userMap.Add(username, (spawn clientSystem (username) (ClientActor username clientSystem)))
-
-//-------------------------------------- Client --------------------------------------//
-
-
-//-------------------------------------- Simulator --------------------------------------//
 
 let mutable onlineUserList = new List<string>()
 

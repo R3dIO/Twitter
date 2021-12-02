@@ -1,18 +1,16 @@
+#time "on"
 #load "bootstrap.fsx"
 #load "database.fsx"
 #load "datatype.fsx"
 
 open System
-open System.Collections.Generic
 open System.Text
 open System.Text.RegularExpressions
 open System.Data
-open System.IO
 open System.Security.Cryptography
 open Akka.Actor
 open Akka.FSharp
 open Akka.Configuration
-open Akka.Serialization
 open Database
 open Datatype
 
@@ -70,15 +68,11 @@ let serverConfig =
 let serverSystem = System.create "TwitterServer" serverConfig
 let rand = Random(DateTime.Now.Millisecond)
 
-//-------------------------------------- Initialization --------------------------------------//
-
-//-------------------------------------- Server --------------------------------------//
-
 let getHashNumFromSha1(str: string) = 
-    str + string(rand.Next(100000))
-    |> Encoding.ASCII.GetBytes
-    |> (new SHA256Managed()).ComputeHash
-    |> System.BitConverter.ToString
+    let tmphashStr = str + string(rand.Next(100000))
+    let hashStr =  Encoding.ASCII.GetBytes(tmphashStr)|> (new SHA256Managed()).ComputeHash
+    let hashNum = BitConverter.ToString(hashStr).Replace("-", "").ToLower()
+    hashNum
 
 let GetUserDetails(username: string) =
     let userExpression = $"Username = '{username}'"
@@ -396,4 +390,3 @@ printfn $"NumUsers = {UserCount},
         Follower Count = {FollowerCount} 
         LogOut Count = {LogOutCount}
         LogIn Count = {LogInCount}"
-//-------------------------------------- Server --------------------------------------//
