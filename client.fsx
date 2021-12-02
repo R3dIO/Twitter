@@ -251,6 +251,7 @@ for i in 0..numClients do
         let followerId = string (rand.Next(numClients-1))
         followee <! FollowUser("User" + followerId)
 
+System.Threading.Thread.Sleep(2000)
 // Sharing random Tweets among users
 for id in 0..numClients do
     let userObj = userMap.["User"+string id]
@@ -269,6 +270,8 @@ for id in 0..numClients do
             if (probabilityNum >= 50) then
                 userObj <! ReTweetUser
 
+
+System.Threading.Thread.Sleep(2000)
 // Searching for hashTags
 for id in 0..numClients do
     let userObj = userMap.["User"+string id]
@@ -286,6 +289,7 @@ for id in 0..numClients do
         if (probabilityNum > 10) then
             userObj <! SearchTweetsWithMention
 
+System.Threading.Thread.Sleep(2000)
 // Random simulator for all operations
 let mutable numOperation = 0
 while keepActive do
