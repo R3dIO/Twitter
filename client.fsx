@@ -36,9 +36,14 @@ let ClientConfig =
                 }       
             }
             remote {
+                maximum-payload-bytes = 30000000 bytes
                 helios.tcp {
                     port = 8000
                     hostname = localhost
+                    message-frame-size =  30000000b
+                    send-buffer-size =  30000000b
+                    receive-buffer-size =  30000000b
+                    maximum-frame-size = 30000000b
                 }
             }
         }")
