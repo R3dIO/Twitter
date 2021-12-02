@@ -1,16 +1,18 @@
-#time "on"
 #load "bootstrap.fsx"
 #load "database.fsx"
 #load "datatype.fsx"
 
 open System
+open System.Collections.Generic
 open System.Text
 open System.Text.RegularExpressions
 open System.Data
+open System.IO
 open System.Security.Cryptography
 open Akka.Actor
 open Akka.FSharp
 open Akka.Configuration
+open Akka.Serialization
 open Database
 open Datatype
 
@@ -68,6 +70,10 @@ let serverConfig =
 let serverSystem = System.create "TwitterServer" serverConfig
 let rand = Random(DateTime.Now.Millisecond)
 
+//-------------------------------------- Initialization --------------------------------------//
+
+//-------------------------------------- Server --------------------------------------//
+
 let getHashNumFromSha1(str: string) = 
     str + string(rand.Next(100000))
     |> Encoding.ASCII.GetBytes
@@ -118,6 +124,7 @@ let GetFollowers(username: string) =
     followerList
 
 let SearchHashTagAndMentions (searchString: string, searchType: string) =
+        let mutable response = "Search"
         let mutable tweetList = list.Empty
         if (searchType = "HashTag") then
             if (useDataTable) then
@@ -309,6 +316,7 @@ let ReTweets (username: string, tweetID: string) =
 let ServerActor(mailbox: Actor<_>) =
     let rec loop()= actor{
         let! msg = mailbox.Receive();
+        let response = mailbox.Sender();
         RequestCount <- RequestCount + 1
         try
             match msg with 
@@ -388,3 +396,4 @@ printfn $"NumUsers = {UserCount},
         Follower Count = {FollowerCount} 
         LogOut Count = {LogOutCount}
         LogIn Count = {LogInCount}"
+//-------------------------------------- Server --------------------------------------//
